@@ -9,7 +9,7 @@
   --accent: #ffaf2e;
   --accent-text: #ffaf2e;
   --surface-placeholder: #2c2b27;
-  --dots: #f9f1da;
+  --dots: #44423c;
 
   --gutter: 77px;
   --header-height: 118px;
@@ -27,7 +27,7 @@
   --accent: #ff8a00;
   --accent-text: #c2410c;
   --surface-placeholder: #ece4ce;
-  --dots: #aa9e7c;
+  --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
 }
 
 @media (prefers-color-scheme: light) {
@@ -40,7 +40,7 @@
     --accent: #ff8a00;
     --accent-text: #c2410c;
     --surface-placeholder: #ece4ce;
-    --dots: #aa9e7c;
+    --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
   }
 }
 
@@ -60,7 +60,7 @@ body {
   background-color: var(--bg);
   background-image: radial-gradient(
     circle,
-    color-mix(in srgb, var(--dots) 50%, transparent) 1px,
+    var(--dots) 1px,
     transparent 1.15px
   );
   background-size: 32px 32px;
@@ -116,7 +116,7 @@ a {
   background-color: var(--bg);
   background-image: radial-gradient(
     circle,
-    color-mix(in srgb, var(--dots) 50%, transparent) 1px,
+    var(--dots) 1px,
     transparent 1.15px
   );
   background-size: 32px 32px;
