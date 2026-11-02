@@ -1,5 +1,11 @@
 /* Theme collection from Figma, modes Dark / Light. Dark is the default. */
 
+@property --dots {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #44423c;
+}
+
 :root {
   color-scheme: dark;
   --bg: #161514;
@@ -13,11 +19,10 @@
 
   --gutter: 77px;
   --header-height: 118px;
-  /* Extra room above the header row at the very top of the page only. */
-  --header-top-space: 68px;
   --content-width: 1766px;
   --font-display: "Unbounded", sans-serif;
   --font-ui: "Inter", sans-serif;
+  transition: --dots 0.35s ease;
 }
 
 :root[data-theme="light"] {
@@ -108,13 +113,13 @@ a {
 
 .site-header {
   position: sticky;
-  top: calc(var(--header-top-space) * -1);
+  top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: calc(var(--header-height) + var(--header-top-space));
-  padding: var(--header-top-space) 73px 0 var(--gutter);
+  height: var(--header-height);
+  padding: 0 73px 0 var(--gutter);
   background-color: var(--bg);
   background-image: radial-gradient(
     circle,
@@ -234,8 +239,8 @@ a {
   display: flex;
   align-items: center;
   min-height: 100svh;
-  margin-top: calc((var(--header-height) + var(--header-top-space)) * -1);
-  padding: calc(var(--header-height) + var(--header-top-space)) var(--gutter) 0;
+  margin-top: calc(var(--header-height) * -1);
+  padding: var(--header-height) var(--gutter) 0;
 }
 
 .hero-copy {
@@ -601,7 +606,10 @@ a {
 }
 
 .site-footer {
-  padding: 0 var(--gutter) 56px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: var(--header-height) var(--gutter) 56px;
 }
 
 .contact {
@@ -609,8 +617,8 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
   gap: 28px;
-  min-height: calc(100svh - var(--header-height) - 96px);
   text-align: center;
 }
 
@@ -725,10 +733,6 @@ a {
 }
 
 @media (max-width: 1080px) {
-  :root {
-    --header-top-space: 0px;
-  }
-
   .site-header {
     position: sticky;
     display: flex;
@@ -820,7 +824,6 @@ a {
   }
 
   .contact {
-    min-height: 70svh;
     gap: 20px;
   }
 
