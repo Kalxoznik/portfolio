@@ -1,0 +1,101 @@
+/* Theme collection from Figma, modes Dark / Light. Dark is the default. */
+
+:root {
+  color-scheme: dark;
+  --bg: #161514;
+  --text-primary: #fff8e3;
+  --text-secondary: #d3cfc3;
+  --text-muted: #a99d7a;
+  --accent: #ffaf2e;
+  --accent-text: #ffaf2e;
+  --surface-placeholder: #2c2b27;
+  --dots: #f9f1da;
+
+  --gutter: 77px;
+  --header-height: 118px;
+  --content-width: 1766px;
+  --font-display: "Unbounded", sans-serif;
+  --font-ui: "Inter", sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fff8e3;
+  --text-primary: #2b2722;
+  --text-secondary: #3e3a32;
+  --text-muted: #7a7054;
+  --accent: #ff8a00;
+  --accent-text: #c2410c;
+  --surface-placeholder: #ece4ce;
+  --dots: #aa9e7c;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #fff8e3;
+    --text-primary: #2b2722;
+    --text-secondary: #3e3a32;
+    --text-muted: #7a7054;
+    --accent: #ff8a00;
+    --accent-text: #c2410c;
+    --surface-placeholder: #ece4ce;
+    --dots: #aa9e7c;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--dots) 50%, transparent) 1px,
+    transparent 1.15px
+  );
+  background-size: 32px 32px;
+  background-position: 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.4;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
