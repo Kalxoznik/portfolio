@@ -23,9 +23,9 @@
   </head>
   <body id="top">
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
+    <header class="site-header" data-check="header">
       <nav class="nav" aria-label="Primary">
-        <a href="#work" data-nav="work">Recent Work</a>
+        <a href="#work" data-nav="work" data-check="nav-first">Recent Work</a>
         <a href="#about" data-nav="about">About Me</a>
         <a href="cv/Max_Shakurov_Product_Designer_CV.pdf" download>
           CV
@@ -40,7 +40,7 @@
           </svg>
         </a>
       </nav>
-      <a class="wordmark" href="#top">MAXSHAKUROV</a>
+      <a class="wordmark" href="#top" data-check="logo">MAXSHAKUROV</a>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -54,12 +54,12 @@
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <h1 id="hero-title">
+          <h1 id="hero-title" data-check="hero-title">
             <span>Shalom, I’m Max.</span>
             <span>I take ideas from first sketch</span>
             <span>to working product.</span>
           </h1>
-          <p class="hero-lead">15+ years in UX and UI across web, mobile, and games. I combine design, hands-on building, and AI to explore ideas and make them work.</p>
+          <p class="hero-lead" data-check="hero-lead">15+ years in UX and UI across web, mobile, and games. I combine design, hands-on building, and AI to explore ideas and make them work.</p>
         </div>
       </section>
 
@@ -68,7 +68,7 @@
 
         <article class="case">
           <div class="case-head">
-            <h3>Creative Vision</h3>
+            <h3 data-check="case-title">Creative Vision</h3>
             <div class="case-row">
               <p class="case-summary">AI coding agents can write code fast, but left alone they lose context, repeat work and drift from the goal. Creative Space is a kanban board that turns them into a small team: a developer agent builds, an architect agent reviews and plans, and I stay in control as the product owner. Every task, handoff and decision is visible in one place.</p>
               <dl class="case-meta">
@@ -87,7 +87,7 @@
               </dl>
             </div>
           </div>
-          <div class="carousel" tabindex="0" aria-label="Creative Vision screens">
+          <div class="carousel" data-check="case-carousel" tabindex="0" aria-label="Creative Vision screens">
             <article class="slide slide-wide">
               <div class="placeholder">
                 <span class="placeholder-icon" aria-hidden="true"></span>
@@ -110,7 +110,7 @@
               <p class="caption"><span class="eyebrow">Screen 03</span><span class="caption-text">Short caption describing what this screen shows and why it matters.</span></p>
             </article>
           </div>
-          <div class="carousel-dots" aria-label="Creative Vision screen navigation">
+          <div class="carousel-dots" data-check="case-dots" aria-label="Creative Vision screen navigation">
             <button type="button" aria-label="Show screen 1" aria-current="true"></button>
             <button type="button" aria-label="Show screen 2"></button>
             <button type="button" aria-label="Show screen 3"></button>
@@ -119,7 +119,7 @@
 
         <article class="case">
           <div class="case-head">
-            <h3>Creative Vision</h3>
+            <h3 data-check="case-title">Creative Vision</h3>
             <div class="case-row">
               <p class="case-summary">AI coding agents can write code fast, but left alone they lose context, repeat work and drift from the goal. Creative Space is a kanban board that turns them into a small team: a developer agent builds, an architect agent reviews and plans, and I stay in control as the product owner. Every task, handoff and decision is visible in one place.</p>
               <dl class="case-meta">
@@ -138,7 +138,7 @@
               </dl>
             </div>
           </div>
-          <div class="carousel" tabindex="0" aria-label="Creative Vision screens, second project">
+          <div class="carousel" data-check="case-carousel" tabindex="0" aria-label="Creative Vision screens, second project">
             <article class="slide slide-wide">
               <div class="placeholder">
                 <span class="placeholder-icon" aria-hidden="true"></span>
@@ -161,7 +161,7 @@
               <p class="caption"><span class="eyebrow">Screen 03</span><span class="caption-text">Short caption describing what this screen shows and why it matters.</span></p>
             </article>
           </div>
-          <div class="carousel-dots" aria-label="Second project screen navigation">
+          <div class="carousel-dots" data-check="case-dots" aria-label="Second project screen navigation">
             <button type="button" aria-label="Show screen 1" aria-current="true"></button>
             <button type="button" aria-label="Show screen 2"></button>
             <button type="button" aria-label="Show screen 3"></button>
@@ -169,14 +169,14 @@
         </article>
       </section>
 
-      <section class="about" aria-labelledby="about">
+      <section class="about" data-check="about" aria-labelledby="about">
         <div class="about-inner">
-          <h2 id="about">Experience</h2>
+          <h2 id="about" data-check="about-title">Experience</h2>
           <ol class="timeline">
             <li class="timeline-item is-current">
               <div class="timeline-mark" aria-hidden="true"></div>
               <div class="timeline-body">
-                <p class="timeline-date">2026 — Present</p>
+                <p class="timeline-date" data-check="timeline-date">2026 — Present</p>
                 <h3>Independent Projects</h3>
                 <p class="timeline-role">Product Designer</p>
                 <p class="timeline-text">Designing and building working products with AI coding agents (Claude Code, Codex, Cursor), from Figma to deployed code. Projects include UX Generator, a tool that turns a product brief into UX flows and screens, and Creative Space, a kanban board for orchestrating AI coding agents with clear roles and human decisions at every step.</p>
@@ -258,10 +258,10 @@
         </div>
       </section>
     </main>
-    <footer class="site-footer">
+    <footer class="site-footer" data-check="footer">
       <div class="contact">
-        <p class="contact-label">Message me</p>
-        <a class="contact-email" href="mailto:max.shakurov@gmail.com">max.shakurov@gmail.com</a>
+        <p class="contact-label" data-check="contact-label">Message me</p>
+        <a class="contact-email" data-check="contact-email" href="mailto:max.shakurov@gmail.com">max.shakurov@gmail.com</a>
         <button class="copy-email" type="button" aria-live="polite">Click to copy</button>
       </div>
       <div class="footer-bottom">
