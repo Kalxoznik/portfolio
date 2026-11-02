@@ -147,3 +147,28 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     goTo(next);
   });
 });
+
+const copyButton = document.querySelector(".copy-email");
+const email = "max.shakurov@gmail.com";
+let copyTimer = 0;
+
+copyButton?.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(email);
+  } catch (error) {
+    const field = document.createElement("textarea");
+    field.value = email;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.left = "-999px";
+    document.body.appendChild(field);
+    field.select();
+    document.execCommand("copy");
+    field.remove();
+  }
+  copyButton.textContent = "Copied ✓";
+  window.clearTimeout(copyTimer);
+  copyTimer = window.setTimeout(() => {
+    copyButton.textContent = "Click to copy";
+  }, 1600);
+});
