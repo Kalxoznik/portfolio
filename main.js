@@ -50,3 +50,100 @@ function setActiveNav() {
 
 window.addEventListener("scroll", setActiveNav, { passive: true });
 setActiveNav();
+
+const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+document.querySelectorAll(".case").forEach((caseEl) => {
+  const scroller = caseEl.querySelector(".carousel");
+  const slides = [...caseEl.querySelectorAll(".slide")];
+  const dots = [...caseEl.querySelectorAll(".carousel-dots button")];
+  if (!scroller || !slides.length) return;
+
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startScroll = 0;
+
+  scroller.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    dragging = true;
+    moved = false;
+    startX = event.clientX;
+    startScroll = scroller.scrollLeft;
+    scroller.setPointerCapture(event.pointerId);
+    scroller.classList.add("is-dragging");
+  });
+
+  scroller.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    const delta = event.clientX - startX;
+    if (Math.abs(delta) > 4) moved = true;
+    scroller.scrollLeft = startScroll - delta;
+  });
+
+  function endDrag() {
+    dragging = false;
+    scroller.classList.remove("is-dragging");
+  }
+
+  scroller.addEventListener("pointerup", endDrag);
+  scroller.addEventListener("pointercancel", endDrag);
+  scroller.addEventListener("click", (event) => {
+    if (!moved) return;
+    event.preventDefault();
+    event.stopPropagation();
+    moved = false;
+  }, true);
+
+  function slideScrollLeft(slide) {
+    const pad = parseFloat(getComputedStyle(scroller).paddingLeft) || 0;
+    return slide.offsetLeft - scroller.offsetLeft - pad;
+  }
+
+  function nearestIndex() {
+    const left = scroller.scrollLeft;
+    let best = 0;
+    let bestDistance = Infinity;
+    slides.forEach((slide, index) => {
+      const distance = Math.abs(slideScrollLeft(slide) - left);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    });
+    return best;
+  }
+
+  function syncDots() {
+    const current = nearestIndex();
+    dots.forEach((dot, index) => {
+      if (index === current) dot.setAttribute("aria-current", "true");
+      else dot.removeAttribute("aria-current");
+    });
+  }
+
+  function goTo(index) {
+    const slide = slides[index];
+    if (!slide) return;
+    scroller.scrollTo({
+      left: slideScrollLeft(slide),
+      behavior: motionOk ? "smooth" : "auto",
+    });
+  }
+
+  scroller.addEventListener("scroll", syncDots, { passive: true });
+
+  dots.forEach((dot, index) => {
+    dot.addEventListener("click", () => goTo(index));
+  });
+
+  scroller.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const current = nearestIndex();
+    const next = event.key === "ArrowRight"
+      ? Math.min(slides.length - 1, current + 1)
+      : Math.max(0, current - 1);
+    goTo(next);
+  });
+});
