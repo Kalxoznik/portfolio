@@ -456,6 +456,137 @@ a {
   background: var(--accent);
 }
 
+.about {
+  padding: var(--header-height) var(--gutter) 96px;
+}
+
+.about-inner {
+  width: min(1316px, 100%);
+}
+
+.about h2 {
+  margin: 0 0 56px;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: 32px;
+}
+
+.timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  bottom: 0;
+  left: 11.25px;
+  width: 1.5px;
+  background: var(--text-muted);
+}
+
+.timeline-item.is-current::before {
+  background: linear-gradient(
+    to bottom,
+    var(--accent),
+    color-mix(in srgb, var(--text-muted) 35%, transparent)
+  );
+}
+
+.timeline-mark {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+}
+
+.timeline-mark::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--text-muted);
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.timeline-item.is-current .timeline-mark::before {
+  top: 6px;
+  left: 6px;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.timeline-body {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.timeline-item:not(:last-child) .timeline-body {
+  padding-bottom: 64px;
+}
+
+.timeline-date {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 17px;
+}
+
+.timeline-body h3 {
+  margin: 6px 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.timeline-role {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.timeline-text {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.text-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.text-link span:first-child {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
