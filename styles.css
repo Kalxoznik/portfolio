@@ -283,11 +283,9 @@ a {
   border: 0;
 }
 
-.work {
-  scroll-margin-top: var(--header-height);
-}
-
 .case {
+  min-height: 100vh;
+  padding-top: var(--header-height);
   padding-bottom: 50px;
 }
 
@@ -772,6 +770,15 @@ a {
     margin-top: 0;
     padding-top: 48px;
     padding-bottom: 72px;
+  }
+
+  .work {
+    scroll-margin-top: var(--header-height);
+  }
+
+  .case {
+    min-height: auto;
+    padding-top: 0;
   }
 
   .slide {
