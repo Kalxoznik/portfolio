@@ -228,6 +228,42 @@ a {
   }
 }
 
+.hero {
+  display: flex;
+  align-items: center;
+  min-height: 100svh;
+  margin-top: calc(var(--header-height) * -1);
+  padding: var(--header-height) var(--gutter) 0;
+}
+
+.hero-copy {
+  width: min(100%, var(--content-width));
+}
+
+.hero h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.23;
+}
+
+.hero h1 span {
+  display: block;
+}
+
+.hero-lead {
+  max-width: 1330px;
+  margin: 32px 0 0;
+  color: var(--text-secondary);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.22;
+  opacity: 0.75;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
