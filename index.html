@@ -3,6 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      (function () {
+        var theme = "dark";
+        try {
+          var stored = localStorage.getItem("theme");
+          if (stored === "light" || stored === "dark") theme = stored;
+          else if (window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+        } catch (e) {}
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <title>Max Shakurov — Product Designer</title>
     <meta name="description" content="Product designer with 15+ years in UX and UI across web, mobile, and games.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,7 +21,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Unbounded:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body>
+  <body id="top">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <nav class="nav" aria-label="Primary">
+        <a href="#work" data-nav="work">Recent Work</a>
+        <a href="#about" data-nav="about">About Me</a>
+        <a href="cv/Max_Shakurov_Product_Designer_CV.pdf" download>
+          CV
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M8 2.5V13.5M13.5 8L8 13.5L2.5 8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </a>
+        <a class="nav-external" href="https://www.linkedin.com/" target="_blank" rel="noopener">
+          <span>LinkedIn</span>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M3.33333 12.6667L12.6667 3.33333M12.6667 11.3333V3.33333H4.66667" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/>
+          </svg>
+        </a>
+      </nav>
+      <a class="wordmark" href="#top">MAXSHAKUROV</a>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <path d="M12 2V4M12 20V22M2 12H4M20 12H22M4.93 4.93L6.35 6.35M17.65 17.65L19.07 19.07M4.93 19.07L6.35 17.65M17.65 6.35L19.07 4.93" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 3C10.8065 4.19347 10.136 5.81217 10.136 7.5C10.136 9.18783 10.8065 10.8065 12 12C13.1935 13.1935 14.8122 13.864 16.5 13.864C18.1878 13.864 19.8065 13.1935 21 12C21 13.78 20.4722 15.5201 19.4832 17.0001C18.4943 18.4802 17.0887 19.6337 15.4442 20.3149C13.7996 20.9961 11.99 21.1743 10.2442 20.8271C8.49836 20.4798 6.89472 19.6226 5.63604 18.364C4.37737 17.1053 3.5202 15.5016 3.17294 13.7558C2.82567 12.01 3.0039 10.2004 3.68509 8.55585C4.36628 6.91131 5.51983 5.50571 6.99987 4.51677C8.47991 3.52784 10.22 3 12 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </header>
     <main id="main"></main>
     <script src="main.js"></script>
   </body>
