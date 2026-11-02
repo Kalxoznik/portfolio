@@ -82,8 +82,18 @@ function measure() {
     [...document.fonts].some(
       (f) => f.family.replace(/["']/g, "") === family && String(f.weight) === weight && f.status === "loaded"
     );
+  // Cap height of the logo: ink ascent of "M" in the logo's computed font.
+  const logoCapHeight = (() => {
+    const el = document.querySelector('[data-check="logo"]');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return ctx.measureText("M").actualBoundingBoxAscent;
+  })();
   return {
     header: one("header"),
+    logoCapHeight,
     logo: one("logo"),
     nav: one("nav-first"),
     heroTitle: one("hero-title"),
@@ -116,8 +126,8 @@ let failed = 0;
 const fmt = (n) => (n == null || !Number.isFinite(n) ? "missing" : String(Math.round(n * 100) / 100));
 
 // `expected` is null when it is relative to an element that is missing.
-function num(name, expected, actual) {
-  const ok = expected != null && actual != null && Math.abs(actual - expected) <= TOLERANCE;
+function num(name, expected, actual, tolerance = TOLERANCE) {
+  const ok = expected != null && actual != null && Math.abs(actual - expected) <= tolerance;
   if (!ok) failed++;
   rows.push([name, fmt(expected), fmt(actual), ok ? "OK" : "FAIL"]);
 }
@@ -158,6 +168,8 @@ try {
 
   num("header height", 118, v(m.header, "height"));
   num("logo MAXSHAKUROV top (text)", 48, v(m.logo, "textTop"));
+  // 19.5: Max Shakurov's Photoshop overlay is at 2x and the Figma logo M there is 39 px.
+  num("logo cap height (M ink)", 19.5, m.logoCapHeight, 0.5);
   num("nav text top (text)", 52, v(m.nav, "textTop"));
   num("nav left x (text)", 77, v(m.nav, "textLeft"));
   num("hero title top (text)", 364, v(m.heroTitle, "textTop"));
