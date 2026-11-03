@@ -156,8 +156,53 @@ try {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   });
 
+  // Experience timeline: each item's line touches the rings with no gap, as in
+  // Figma (POR-15). Line and ring are ::before boxes: the item's or mark's rect
+  // plus the pseudo's computed top, left, width and height.
+  async function timelineChecks(width) {
+    const items = await page.evaluate(() =>
+      [...document.querySelectorAll(".timeline-item")].map((item) => {
+        const mark = item.querySelector(".timeline-mark");
+        const line = getComputedStyle(item, "::before");
+        const ring = getComputedStyle(mark, "::before");
+        const ir = item.getBoundingClientRect();
+        const mr = mark.getBoundingClientRect();
+        const hasLine = line.content !== "none" && line.content !== "normal";
+        const ringTop = mr.top + parseFloat(ring.top);
+        return {
+          current: item.classList.contains("is-current"),
+          hasLine,
+          lineTop: ir.top + parseFloat(line.top),
+          lineBottom: ir.top + parseFloat(line.top) + parseFloat(line.height),
+          lineCenter: ir.left + parseFloat(line.left) + parseFloat(line.width) / 2,
+          lineBg: line.backgroundImage,
+          ringTop,
+          ringBottom: ringTop + parseFloat(ring.height),
+          ringCenter: mr.left + parseFloat(ring.left) + parseFloat(ring.width) / 2,
+        };
+      })
+    );
+    flag(`timeline items found @${width}`, "≥ 2", items.length, items.length >= 2);
+    items.forEach((it, i) => {
+      if (!it.hasLine) return;
+      const next = items[i + 1];
+      const n = i + 1;
+      if (next) {
+        flag(`timeline ${n}: line bottom ≥ next ring top @${width}`, `≥ ${fmt(next.ringTop)}`, fmt(it.lineBottom), it.lineBottom >= next.ringTop);
+      }
+      if (!it.current) {
+        flag(`timeline ${n}: line top ≤ own ring bottom @${width}`, `≤ ${fmt(it.ringBottom)}`, fmt(it.lineTop), it.lineTop <= it.ringBottom);
+      }
+      num(`timeline ${n}: line centre x = ring centre @${width}`, it.ringCenter, it.lineCenter, 0.25);
+      if (it.current) {
+        const ends = /rgb\(169, 157, 122\)\)$/.test(it.lineBg);
+        flag(`timeline ${n}: current gradient ends in ring colour @${width}`, "rgb(169, 157, 122)", it.lineBg, ends);
+      }
+    });
+  }
+
   const m = await page.evaluate(measure);
-  const v = (box, key) => (box ? box[key] : null);
+  const v =(box, key) => (box ? box[key] : null);
   const plus = (box, key, add) => (box ? box[key] + add : null);
 
   flag("theme: html[data-theme]", "dark", m.theme, m.theme === "dark");
@@ -188,6 +233,7 @@ try {
 
   const over1920 = await page.evaluate(overflowX);
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
+  await timelineChecks(1920);
 
   // The header is transparent until the hero title's top reaches its bottom,
   // then fills with the plain background, no dots, at once (POR-13). Read two
@@ -372,6 +418,7 @@ try {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const over375 = await page.evaluate(overflowX);
   flag("no horizontal scroll @375", "0", over375, over375 <= 0);
+  await timelineChecks(375);
 } finally {
   await browser.close();
   server.close();

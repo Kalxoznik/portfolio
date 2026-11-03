@@ -532,19 +532,16 @@ a {
 .timeline-item:not(:last-child)::before {
   content: "";
   position: absolute;
-  top: 20px;
-  bottom: 0;
+  top: 12px;
+  bottom: -12px;
   left: 11.25px;
   width: 1.5px;
   background: var(--text-muted);
 }
 
 .timeline-item.is-current::before {
-  background: linear-gradient(
-    to bottom,
-    var(--accent),
-    color-mix(in srgb, var(--text-muted) 35%, transparent)
-  );
+  top: 20px;
+  background: linear-gradient(to bottom, var(--accent), var(--text-muted));
 }
 
 .timeline-mark {
