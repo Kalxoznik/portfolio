@@ -773,7 +773,7 @@ try {
     const h = await halo();
     if (width === 1920) {
       flag("motion on: halo ::after animates forever", "Infinity", String(h.iterations), h.iterations === Infinity);
-      flag("motion on: halo runs 1.5s, ease-out", "1500 / cubic-bezier(0, 0, 0.2, 1)", `${fmt(h.duration)} / ${h.easing}`, h.duration === 1500 && h.easing === "cubic-bezier(0, 0, 0.2, 1)");
+      flag("motion on: halo runs 1.2s, ease-out", "1200 / cubic-bezier(0, 0, 0.2, 1)", `${fmt(h.duration)} / ${h.easing}`, h.duration === 1200 && h.easing === "cubic-bezier(0, 0, 0.2, 1)");
       flag("motion on: dot has no shadow", "none", h.shadow, h.shadow === "none");
       flag("motion on: halo first frame ≤ 12px", "≤ 12", fmt(h.start?.size), h.start != null && h.start.size <= 12.01);
       num("motion on: halo last frame size", 48, h.end?.size, 0.5);
