@@ -183,6 +183,7 @@ a {
 }
 
 .wordmark {
+  transition: color 0.2s ease;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
