@@ -792,7 +792,8 @@ a {
 /* Link hover (POR-24, main.js splits the text): no underline at rest; on
    hover the letters roll up one by one from the left, each into its copy
    one line below, and the underline draws in from the left, 1px thick.
-   The logo has it too; the big email does not. The accent colour is each link's own :hover rule. */
+   The logo rolls its letters with no line; the big email has neither. The
+   accent colour is each link's own :hover rule. */
 .link-label {
   background: linear-gradient(currentColor, currentColor) 0 100% / 0 max(1px, 0.04em) no-repeat;
   transition: background-size 0.5s cubic-bezier(0.65, 0, 0.35, 1);
@@ -809,6 +810,12 @@ a:focus-visible .link-label {
 .text-link:hover .link-label,
 .text-link:focus-visible .link-label {
   background-size: calc(100% - 15px) max(1px, 0.04em);
+}
+
+/* The logo rolls without the line. Only the image goes: the size rules above
+   still apply, and the shorthand would reset the size to auto at rest. */
+.wordmark .link-label {
+  background-image: none;
 }
 
 .roll-word {

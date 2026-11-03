@@ -319,13 +319,14 @@ try {
   flag("logo: rolling letters", "11", linkRest.logoChars, linkRest.logoChars === 11);
   flag("email: rolling letters", "0", linkRest.emailSplit, linkRest.emailSplit === 0);
   // Hovered below the top of the page, where the logo is not current (so not
-  // accent at rest): its line is drawn in full and it takes the accent.
-  // The email instead dims to --text-secondary. Wait for the transitions.
-  // Reads frame by frame for up to 2s until both land; on timeout the rows
-  // fail and show what was found.
-  async function hoverColor(selector, labelSelector, colorVar, line) {
+  // accent at rest): its letters roll but no line is drawn, and it takes the
+  // accent. The email instead dims to --text-secondary. Wait for the
+  // transitions: the last logo letter starts 180ms late (reduced motion cuts
+  // only the duration). Reads frame by frame for up to 2s until all land; on
+  // timeout the rows fail and show what was found.
+  async function hoverColor(selector, labelSelector, colorVar, glyphSelector, glyphWant) {
     await page.hover(selector);
-    const result = await page.evaluate(async ([sel, labelSel, cv, ln]) => {
+    const result = await page.evaluate(async ([sel, labelSel, cv, glyphSel, gw]) => {
       const probe = document.createElement("span");
       probe.style.color = `var(${cv})`;
       document.body.append(probe);
@@ -335,19 +336,23 @@ try {
       for (;;) {
         const color = getComputedStyle(document.querySelector(sel)).color;
         const label = labelSel && document.querySelector(labelSel);
-        const size = label ? getComputedStyle(label).backgroundSize : null;
-        if ((color === want && (!ln || size === ln)) || performance.now() > end) return { want, color, size };
+        const image = label ? getComputedStyle(label).backgroundImage : null;
+        const glyph = glyphSel && document.querySelector(glyphSel);
+        const transform = glyph ? getComputedStyle(glyph).transform : null;
+        if ((color === want && (!gw || transform === gw)) || performance.now() > end) return { want, color, image, transform };
         await new Promise((r) => requestAnimationFrame(r));
       }
-    }, [selector, labelSelector, colorVar, line]);
+    }, [selector, labelSelector, colorVar, glyphSelector, glyphWant]);
     await page.mouse.move(0, 0);
     return result;
   }
   await page.evaluate(() => window.scrollTo({ top: 1080, behavior: "instant" }));
-  const logoHover = await hoverColor(".wordmark", ".wordmark .link-label", "--accent", "100% 1.04px");
-  flag("hovered logo: line width", "100% 1.04px", logoHover.size, logoHover.size === "100% 1.04px");
+  const rolled = "matrix(1, 0, 0, 1, 0, -30)";
+  const logoHover = await hoverColor(".wordmark", ".wordmark .link-label", "--accent", ".wordmark .roll-char:last-of-type > span", rolled);
+  flag("hovered logo: no line", "none", logoHover.image, logoHover.image === "none");
+  flag("hovered logo: letters rolled", rolled, logoHover.transform, logoHover.transform === rolled);
   flag("hovered logo: colour = accent", logoHover.want, logoHover.color, logoHover.color === logoHover.want);
-  const emailHover = await hoverColor(".contact-email", null, "--text-secondary", null);
+  const emailHover = await hoverColor(".contact-email", null, "--text-secondary");
   flag("hovered email: colour = text-secondary", emailHover.want, emailHover.color, emailHover.color === emailHover.want);
   // A click on the email is cancelled (no mail app) and the line under it
   // turns "Copied ✓".

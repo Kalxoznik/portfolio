@@ -757,8 +757,8 @@ document.querySelectorAll(".case").forEach((caseEl) => {
 // Link hover (POR-24): every letter rolls up and its copy rolls in from below,
 // one after another from the left, while the underline draws in. Each letter
 // sits in a clip box one line tall; the copy is its text-shadow one line down.
-// Words keep their letters together. The logo rolls too; the big email does
-// not, it copies on click (below). The link's name stays its plain text for
+// Words keep their letters together. The logo rolls too, without the line
+// (styles.css); the big email does not, it copies on click (below). The link's name stays its plain text for
 // screen readers.
 document.querySelectorAll(".wordmark, .nav a, .text-link, .footer-links a").forEach((link) => {
   if (!link.hasAttribute("aria-label")) link.setAttribute("aria-label", link.textContent.replace(/\s+/g, " ").trim());
