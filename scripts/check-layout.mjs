@@ -249,6 +249,14 @@ try {
   const g1300 = await headerGap(1300);
   flag("nav row shown, no menu button @1300", "yes", !g1300.menu && g1300.navVisible ? "yes" : "no", !g1300.menu && g1300.navVisible);
   flag("nav→logo gap ≥ 26 @1300", "≥ 26", fmt(g1300.gap), g1300.gap >= 26);
+  // Resizing into the range must hide the nav at once, with no fade-out:
+  // two frames after 1300 → 1299, no 300ms wait.
+  await page.setViewportSize({ width: 1299, height: 900 });
+  const resizedNav = await page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return getComputedStyle(document.querySelector('[data-check="nav"]')).visibility;
+  });
+  flag("nav hidden at once on resize 1300→1299", "hidden", resizedNav, resizedNav === "hidden");
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));

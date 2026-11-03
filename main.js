@@ -31,7 +31,7 @@ toggle?.addEventListener("click", () => {
 
 const menuToggle = document.querySelector(".menu-toggle");
 const nav = document.querySelector(".nav");
-const menuMedia = window.matchMedia("(min-width: 1081px) and (max-width: 1299px)");
+const menuMedia = window.matchMedia("(1080px < width < 1300px)");
 
 function setMenuOpen(open) {
   if (!menuToggle || !header) return;
@@ -59,7 +59,14 @@ document.addEventListener("keydown", (event) => {
   menuToggle.focus();
 });
 
-menuMedia.addEventListener("change", () => setMenuOpen(false));
+// Crossing into or out of the range swaps the nav's styles at once: only the
+// button, a link, a click outside or Escape fade the dropdown.
+menuMedia.addEventListener("change", () => {
+  setMenuOpen(false);
+  if (!nav) return;
+  nav.style.transition = "none";
+  requestAnimationFrame(() => requestAnimationFrame(() => nav.style.removeProperty("transition")));
+});
 
 function setActiveNav() {
   if (!navLinks.length) return;

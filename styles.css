@@ -721,7 +721,7 @@ a {
 /* 1081–1299: the nav row runs into the centred logo (POR-12 measured it
    overlapping up to 44px), so it folds into a MENU button with a dropdown,
    as Max Shakurov asked. Narrower widths keep the stacked tablet header. */
-@media (min-width: 1081px) and (max-width: 1299px) {
+@media (1080px < width < 1300px) {
   .menu-toggle {
     display: inline-flex;
     align-items: center;
