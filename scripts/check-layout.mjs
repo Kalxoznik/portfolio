@@ -387,7 +387,10 @@ try {
     await frames();
     toggle.click();
     await frames();
-    const anim = document.getAnimations().find((a) => a.effect?.pseudoElement === "::view-transition-new(root)");
+    // The skipped transition's circle keeps running and comes first; the
+    // live one started a couple of frames later, so wait for the last.
+    const circles = document.getAnimations().filter((a) => a.effect?.pseudoElement === "::view-transition-new(root)");
+    const anim = circles.at(-1);
     const midBg = getComputedStyle(document.body).backgroundColor;
     await anim?.finished;
     await frames();
