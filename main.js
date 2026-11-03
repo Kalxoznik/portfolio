@@ -111,6 +111,156 @@ syncHeaderSolid();
 
 const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// First screen: the dots run from the cursor and spring back once it leaves
+// (POR-17). A canvas under the hero redraws the body's 32px grid in place, so
+// the dots line up with the rest of the page. Mouse only, motion on only;
+// otherwise the body's own dots stay as they are.
+const hero = document.querySelector(".hero");
+
+if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+  const canvas = document.createElement("canvas");
+  canvas.className = "hero-dots";
+  canvas.setAttribute("aria-hidden", "true");
+  hero.prepend(canvas);
+  const ctx = canvas.getContext("2d");
+
+  const GRID = 32;
+  const DOT = 1;
+  const RADIUS = 140;
+  const dots = [];
+  let width = 0;
+  let height = 0;
+  let pointer = null;
+  let frame = 0;
+  let lastTime = 0;
+  let themeUntil = 0;
+
+  function build() {
+    const ratio = window.devicePixelRatio || 1;
+    width = hero.offsetWidth;
+    height = hero.offsetHeight;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    dots.length = 0;
+    const rect = hero.getBoundingClientRect();
+    const left = rect.left + window.scrollX;
+    const top = rect.top + window.scrollY;
+    const startX = (((GRID / 2 - left) % GRID) + GRID) % GRID;
+    const startY = (((GRID / 2 - top) % GRID) + GRID) % GRID;
+    for (let y = startY; y < height + GRID; y += GRID) {
+      for (let x = startX; x < width + GRID; x += GRID) {
+        dots.push({ x, y, ox: 0, oy: 0 });
+      }
+    }
+  }
+
+  function draw() {
+    const styles = getComputedStyle(root);
+    const color = styles.getPropertyValue("--dots").trim();
+    const lit = styles.getPropertyValue("--text-muted").trim();
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    dots.forEach((dot) => {
+      if (dot.ox || dot.oy) return;
+      ctx.moveTo(dot.x + DOT, dot.y);
+      ctx.arc(dot.x, dot.y, DOT, 0, Math.PI * 2);
+    });
+    ctx.fill();
+
+    // Pushed dots grow a little and brighten towards the muted text colour.
+    dots.forEach((dot) => {
+      if (!dot.ox && !dot.oy) return;
+      const push = Math.min(1, Math.hypot(dot.ox, dot.oy) / (RADIUS * 0.5));
+      const r = DOT + push * 0.6;
+      const x = dot.x + dot.ox;
+      const y = dot.y + dot.oy;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = push * 0.45;
+      ctx.fillStyle = lit;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function step(time) {
+    frame = 0;
+    const dt = Math.min(0.05, lastTime ? (time - lastTime) / 1000 : 1 / 60);
+    lastTime = time;
+    const ease = 1 - Math.pow(0.82, dt * 60);
+    const rect = hero.getBoundingClientRect();
+    const px = pointer ? pointer.x - rect.left : 0;
+    const py = pointer ? pointer.y - rect.top : 0;
+    let moving = false;
+
+    dots.forEach((dot) => {
+      let tx = 0;
+      let ty = 0;
+      if (pointer) {
+        const dx = dot.x - px;
+        const dy = dot.y - py;
+        const d = Math.hypot(dx, dy);
+        if (d < RADIUS) {
+          // Closest dots travel furthest, out to about the edge of the circle.
+          const t = 1 - d / RADIUS;
+          const push = RADIUS * t * t * 0.9;
+          const nx = d ? dx / d : 1;
+          const ny = d ? dy / d : 0;
+          tx = nx * push;
+          ty = ny * push;
+        }
+      }
+      dot.ox += (tx - dot.ox) * ease;
+      dot.oy += (ty - dot.oy) * ease;
+      if (Math.abs(tx - dot.ox) < 0.05 && Math.abs(ty - dot.oy) < 0.05) {
+        dot.ox = tx;
+        dot.oy = ty;
+      } else {
+        moving = true;
+      }
+    });
+
+    draw();
+    if (moving || time < themeUntil) frame = requestAnimationFrame(step);
+    else lastTime = 0;
+  }
+
+  function wake() {
+    if (!frame) frame = requestAnimationFrame(step);
+  }
+
+  window.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "mouse") return;
+    pointer = { x: event.clientX, y: event.clientY };
+    wake();
+  }, { passive: true });
+
+  document.documentElement.addEventListener("mouseleave", () => {
+    pointer = null;
+    wake();
+  });
+
+  window.addEventListener("scroll", () => {
+    if (pointer) wake();
+  }, { passive: true });
+
+  // The dot colour fades with the theme switch: redraw for its 0.35s.
+  new MutationObserver(() => {
+    themeUntil = performance.now() + 400;
+    wake();
+  }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+
+  new ResizeObserver(() => {
+    build();
+    draw();
+  }).observe(hero);
+}
+
 document.querySelectorAll(".case").forEach((caseEl) => {
   const scroller = caseEl.querySelector(".carousel");
   const slides = [...caseEl.querySelectorAll(".slide")];
