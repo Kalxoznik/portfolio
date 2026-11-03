@@ -268,11 +268,12 @@ a {
   padding: max(var(--header-height), calc(100svh * 364 / 1080)) var(--gutter) 0;
 }
 
-/* main.js redraws the page's dots over the first screen and pushes them away
-   from the cursor (POR-17). The canvas hides the body's own dots there with
-   the plain background and sits under the header and the hero text. It runs
-   on under the top of the next section and, where the hero sits under the
-   header, up to the top of the page; main.js sets its top and height. */
+/* main.js pushes the page's dots on the first screen away from the cursor
+   (POR-17). The canvas is see-through: at rest it is empty and the body shows
+   its own dots; it draws only the pushed ones, over patches of background at
+   their homes. It sits under the header and the hero text, runs on under the
+   top of the next section and, where the hero sits under the header, up to
+   the top of the page; main.js sets its top and height. */
 .hero-dots {
   position: absolute;
   top: 0;
@@ -280,9 +281,7 @@ a {
   z-index: -1;
   display: block;
   width: 100%;
-  background-color: var(--bg);
   pointer-events: none;
-  transition: background-color 0.35s ease;
 }
 
 .hero-copy {

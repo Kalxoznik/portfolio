@@ -112,8 +112,9 @@ syncHeaderSolid();
 const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // First screen: the dots run from the cursor and spring back once it leaves
-// (POR-17). A canvas under the hero redraws the body's 32px grid in place, so
-// the dots line up with the rest of the page. Mouse only, motion on only;
+// (POR-17). A canvas under the hero tracks the body's 32px grid and draws only
+// the dots that are pushed off it, so at rest the page shows through untouched.
+// Mouse only, motion on only;
 // otherwise the body's own dots stay as they are. The canvas runs RADIUS past
 // the hero's bottom edge and the reach shrinks below it, so a pushed dot never
 // leaves the canvas and the ring is not cut off at the seam. Up top it starts
@@ -164,33 +165,44 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     }
   }
 
+  // Only pushed dots are drawn: the body shows the resting ones, so at rest the
+  // canvas is empty. A patch of the page background hides a pushed dot's home;
+  // over the last pixel of its way back the patch and the dot fade out together,
+  // handing the dot over to the body without a blink. The patch fades as the
+  // square: the dot is drawn over it, not over the body's dot, so with equal
+  // alphas a faint hole would be left where the dot lands.
   function draw() {
     const styles = getComputedStyle(root);
     const color = styles.getPropertyValue("--dots").trim();
     const lit = styles.getPropertyValue("--text-muted").trim();
+    const bg = getComputedStyle(document.body).backgroundColor;
     ctx.clearRect(0, 0, width, height + RADIUS);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    dots.forEach((dot) => {
-      if (dot.ox || dot.oy) return;
-      ctx.moveTo(dot.x + DOT, dot.y);
-      ctx.arc(dot.x, dot.y, DOT, 0, Math.PI * 2);
+    const pushed = dots.filter((dot) => dot.ox || dot.oy);
+    // An empty canvas still nudges the text antialiasing above it: hide it.
+    canvas.style.visibility = pushed.length ? "" : "hidden";
+
+    ctx.fillStyle = bg;
+    pushed.forEach((dot) => {
+      ctx.globalAlpha = Math.min(1, Math.hypot(dot.ox, dot.oy)) ** 2;
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, 2, 0, Math.PI * 2);
+      ctx.fill();
     });
-    ctx.fill();
 
     // Pushed dots grow a little and brighten towards the muted text colour.
-    dots.forEach((dot) => {
-      if (!dot.ox && !dot.oy) return;
-      const push = Math.min(1, Math.hypot(dot.ox, dot.oy) / (RADIUS * 0.5));
+    pushed.forEach((dot) => {
+      const shift = Math.hypot(dot.ox, dot.oy);
+      const fade = Math.min(1, shift);
+      const push = Math.min(1, shift / (RADIUS * 0.5));
       const r = DOT + push * 0.6;
       const x = dot.x + dot.ox;
       const y = dot.y + dot.oy;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = fade;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = push * 0.45;
+      ctx.globalAlpha = fade * push * 0.45;
       ctx.fillStyle = lit;
       ctx.fill();
     });
