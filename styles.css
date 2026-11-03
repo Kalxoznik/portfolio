@@ -669,10 +669,15 @@ a {
   color: var(--accent);
 }
 
-.text-link span:first-child {
+.text-link > span {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+/* The last word and the arrow: they wrap together, never apart (POR-19). */
+.text-link-end {
+  white-space: nowrap;
 }
 
 /* The LinkedIn nav arrow, scaled down from 16px to sit with 16px body text. */

@@ -235,6 +235,63 @@ try {
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
   await timelineChecks(1920);
 
+  // Experience links: the arrow never wraps away from the link's last word
+  // (POR-19). Each paragraph is narrowed from its 1920 width to 240 in 1px
+  // steps; at every width the arrow must be on the line of the link's last
+  // character (a Range rect) and 3px after it. Transitions are off during the
+  // sweep: reduced motion gives every property a 0.01ms transition, which
+  // would keep the old width until the next frame.
+  const arrowWraps = await page.evaluate(() =>
+    [...document.querySelectorAll(".timeline-text")]
+      .filter((p) => p.querySelector(".text-link-arrow"))
+      .map((p) => {
+        const link = p.querySelector(".text-link");
+        const arrow = link.querySelector(".text-link-arrow");
+        const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+        let last = null;
+        while (walker.nextNode()) if (walker.currentNode.data.trim()) last = walker.currentNode;
+        const end = last.data.trimEnd().length;
+        const range = document.createRange();
+        range.setStart(last, end - 1);
+        range.setEnd(last, end);
+        const full = Math.floor(p.getBoundingClientRect().width);
+        const bad = [];
+        p.style.transition = "none";
+        for (let w = full; w >= 240; w--) {
+          p.style.width = `${w}px`;
+          const ch = range.getBoundingClientRect();
+          const ar = arrow.getBoundingClientRect();
+          const mid = (ar.top + ar.bottom) / 2;
+          const sameLine = mid > ch.top && mid < ch.bottom;
+          const gap = ar.left - ch.right;
+          if (!sameLine || Math.abs(gap - 3) > 0.5) bad.push(w);
+        }
+        p.style.width = "";
+        p.style.transition = "";
+        return { name: link.textContent.trim(), full, bad };
+      })
+  );
+  flag("experience links with an arrow", "3", arrowWraps.length, arrowWraps.length === 3);
+  for (const a of arrowWraps) {
+    const shown = a.bad.length ? `${a.bad.length} (${a.bad.slice(0, 3).join(", ")}…)` : "0";
+    flag(`"${a.name}" arrow on last char's line, 3px after, widths ${a.full}→240`, "0 failing", shown, a.bad.length === 0);
+  }
+  // Hovered, the arrow takes the accent colour with the text. Read after
+  // 50ms, once the (reduced-motion, 0.01ms) colour transition is over.
+  await page.hover(".timeline-text .text-link");
+  await page.waitForTimeout(50);
+  const hoverStroke = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--accent)";
+    document.body.append(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    const path = document.querySelector(".timeline-text .text-link-arrow path");
+    return { accent, stroke: getComputedStyle(path).stroke };
+  });
+  flag("hovered link: arrow stroke = accent", hoverStroke.accent, hoverStroke.stroke, hoverStroke.stroke === hoverStroke.accent);
+  await page.mouse.move(0, 0);
+
   // The header is transparent until the hero title's top reaches its bottom,
   // then fills with the plain background, no dots, at once (POR-13). Read two
   // frames after the scroll: a fade would still be on its way there.
