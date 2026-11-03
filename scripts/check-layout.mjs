@@ -347,6 +347,44 @@ try {
     await page.emulateMedia({ reducedMotion: "reduce" });
   }
 
+  // Theme switch with motion on: the new theme grows as a circle from the
+  // toggle's centre (clip-path on ::view-transition-new(root)), then the page
+  // is in the new theme with nothing left over. Reduced motion: at once.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const circle = await page.evaluate(async () => {
+    const root = document.documentElement;
+    const toggle = document.querySelector(".theme-toggle");
+    const b = toggle.getBoundingClientRect();
+    toggle.click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const anim = document.getAnimations().find((a) => a.effect?.pseudoElement === "::view-transition-new(root)");
+    const frames = anim ? anim.effect.getKeyframes().map((k) => k.clipPath) : [];
+    const midBg = getComputedStyle(document.body).backgroundColor;
+    await anim?.finished;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return {
+      centre: `${b.left + b.width / 2}px ${b.top + b.height / 2}px`,
+      from: frames[0] || "missing",
+      to: frames[frames.length - 1] || "missing",
+      duration: anim ? anim.effect.getTiming().duration : null,
+      midBg,
+      theme: root.getAttribute("data-theme"),
+      leftover: root.classList.contains("is-theme-switching"),
+    };
+  });
+  flag("motion on: circle starts at the toggle centre", `circle(0px at ${circle.centre})`, circle.from, circle.from === `circle(0px at ${circle.centre})`);
+  flag("motion on: circle ends at the toggle centre", `… at ${circle.centre})`, circle.to, circle.to.endsWith(`at ${circle.centre})`) && circle.to !== circle.from);
+  flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
+  flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
+  flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const back = await page.evaluate(async () => {
+    document.querySelector(".theme-toggle").click();
+    const vt = document.getAnimations().some((a) => a.effect?.pseudoElement?.startsWith("::view-transition"));
+    return `${document.documentElement.getAttribute("data-theme")} / ${vt ? "transition" : "instant"}`;
+  });
+  flag("reduced motion: theme switches at once", "dark / instant", back, back === "dark / instant");
+
   // Scrolled to the first case: the sticky header has not moved, the row is
   // still 6px below Figma. Viewport coordinates (page position minus scrollY).
   await page.evaluate(async () => {

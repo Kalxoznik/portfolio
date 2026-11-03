@@ -59,6 +59,22 @@
   box-sizing: border-box;
 }
 
+/* Theme switch: main.js grows the new theme as a circle from the toggle, so
+   the snapshots skip their default cross-fade and colours do not fade under
+   the circle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root.is-theme-switching,
+:root.is-theme-switching *,
+:root.is-theme-switching *::before,
+:root.is-theme-switching *::after {
+  transition: none !important;
+}
+
 html {
   scroll-behavior: smooth;
 }

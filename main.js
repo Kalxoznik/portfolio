@@ -25,9 +25,33 @@ function applyTheme(theme) {
 
 syncToggleLabel();
 
+// The new theme opens as a circle from the toggle's centre over the old one
+// (View Transitions). Without the API or with reduced motion it switches at
+// once. Colour transitions are cut while the new state is drawn, so the
+// circle holds the final colours instead of a fade.
+const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+
 toggle?.addEventListener("click", () => {
   const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
-  applyTheme(next);
+  if (!document.startViewTransition || motionMedia.matches) {
+    applyTheme(next);
+    return;
+  }
+  const box = toggle.getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  root.classList.add("is-theme-switching");
+  const transition = document.startViewTransition(() => applyTheme(next));
+  transition.ready
+    .then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 700, easing: "cubic-bezier(0.65, 0, 0.35, 1)", pseudoElement: "::view-transition-new(root)" }
+      );
+    })
+    .catch(() => {});
+  transition.finished.finally(() => root.classList.remove("is-theme-switching"));
 });
 
 const menuToggle = document.querySelector(".menu-toggle");
