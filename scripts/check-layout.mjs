@@ -377,6 +377,24 @@ try {
   flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
   flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
   flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
+  // A second click while the circle grows: the browser skips the first
+  // transition, and its end must not lift the no-fade class from the second.
+  const twice = await page.evaluate(async () => {
+    const root = document.documentElement;
+    const toggle = document.querySelector(".theme-toggle");
+    const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    toggle.click();
+    await frames();
+    toggle.click();
+    await frames();
+    const anim = document.getAnimations().find((a) => a.effect?.pseudoElement === "::view-transition-new(root)");
+    const midBg = getComputedStyle(document.body).backgroundColor;
+    await anim?.finished;
+    await frames();
+    return { midBg, theme: root.getAttribute("data-theme"), leftover: root.classList.contains("is-theme-switching") };
+  });
+  flag("motion on: second click mid-circle has no colour fade", "rgb(255, 248, 227)", twice.midBg, twice.midBg === "rgb(255, 248, 227)");
+  flag("motion on: second click ends light and clean", "light / clean", `${twice.theme} / ${twice.leftover ? "class left" : "clean"}`, twice.theme === "light" && !twice.leftover);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const back = await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();

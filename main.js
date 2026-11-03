@@ -30,6 +30,7 @@ syncToggleLabel();
 // once. Colour transitions are cut while the new state is drawn, so the
 // circle holds the final colours instead of a fade.
 const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+let switching = null;
 
 toggle?.addEventListener("click", () => {
   const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
@@ -43,6 +44,7 @@ toggle?.addEventListener("click", () => {
   const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
   root.classList.add("is-theme-switching");
   const transition = document.startViewTransition(() => applyTheme(next));
+  switching = transition;
   transition.ready
     .then(() => {
       root.animate(
@@ -51,7 +53,10 @@ toggle?.addEventListener("click", () => {
       );
     })
     .catch(() => {});
-  transition.finished.finally(() => root.classList.remove("is-theme-switching"));
+  // A click mid-circle skips this transition; only the latest one lifts the class.
+  transition.finished.finally(() => {
+    if (switching === transition) root.classList.remove("is-theme-switching");
+  });
 });
 
 const menuToggle = document.querySelector(".menu-toggle");
