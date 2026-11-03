@@ -261,6 +261,8 @@ try {
       const logoText = range.getBoundingClientRect();
       const logoCs = getComputedStyle(logo);
       const buttonRect = button.getBoundingClientRect();
+      const logoRect = logo.getBoundingClientRect();
+      const toggleRect = document.querySelector(".theme-toggle").getBoundingClientRect();
       const ctx = document.createElement("canvas").getContext("2d");
       ctx.font = `${logoCs.fontWeight} ${logoCs.fontSize} ${logoCs.fontFamily}`;
       return {
@@ -270,13 +272,16 @@ try {
         // Viewport coordinates, the header being sticky.
         headerHeight: document.querySelector('[data-check="header"]').getBoundingClientRect().height,
         logoTop: logo.getBoundingClientRect().top + parseFloat(logoCs.borderTopWidth) + parseFloat(logoCs.paddingTop),
-        logoBottom: logoText.bottom,
         buttonTop: buttonRect.top,
         logoCapHeight: ctx.measureText("M").actualBoundingBoxAscent,
         logoCenter: (logoText.left + logoText.right) / 2,
         logoRight: logoText.right,
         halfWidth: document.documentElement.clientWidth / 2,
-        toggleLeft: document.querySelector(".theme-toggle").getBoundingClientRect().left,
+        toggleLeft: toggleRect.left,
+        buttonMid: (buttonRect.top + buttonRect.bottom) / 2,
+        logoMid: (logoRect.top + logoRect.bottom) / 2,
+        toggleMid: (toggleRect.top + toggleRect.bottom) / 2,
+        labelWidth: document.querySelector(".menu-label").getBoundingClientRect().width,
       };
     });
   }
@@ -295,12 +300,23 @@ try {
       num("logo cap height @721 (M ink)", 19.5, g.logoCapHeight, 0.5);
     }
   }
-  // ≤720: two rows, the MENU button under the logo.
-  for (const [width, height] of [[720, 900], [375, 812]]) {
+  // ≤720: the same one row; the logo is 16px and centred on the screen, and
+  // at ≤480 the button keeps only its icon.
+  for (const [width, height] of [[720, 900], [481, 900], [480, 900], [375, 812]]) {
     const g = await headerGap(width, height);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
-    flag(`menu button below logo text @${width}`, `> ${fmt(g.logoBottom)}`, fmt(g.buttonTop), g.buttonTop > g.logoBottom);
-    // The logo is 16px here and centred on the screen, the row height unchanged.
+    const offRow = Math.max(Math.abs(g.buttonMid - g.logoMid), Math.abs(g.toggleMid - g.logoMid));
+    flag(`button, logo, toggle centres in one row @${width}`, "±1", fmt(offRow), offRow <= 1);
+    num(`logo top @${width} (text, viewport)`, 54, g.logoTop);
+    flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
+    const labelShown = width > 480;
+    flag(
+      `menu label width ${labelShown ? "> 40" : "≤ 1"} @${width}`,
+      labelShown ? "> 40" : "≤ 1",
+      fmt(g.labelWidth),
+      labelShown ? g.labelWidth > 40 : g.labelWidth <= 1,
+    );
+    if (width !== 720 && width !== 375) continue;
     num(`header height @${width} (viewport)`, 118, g.headerHeight);
     num(`logo cap height @${width} (M ink)`, 12, g.logoCapHeight, 0.5);
     num(`logo text centre = clientWidth / 2 @${width}`, g.halfWidth, g.logoCenter, 1);

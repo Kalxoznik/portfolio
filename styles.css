@@ -835,51 +835,21 @@ a {
   }
 }
 
-/* 721–1299 keep the desktop row (button, centred logo, theme toggle). Here
-   the 26px logo fills most of the width, so the header takes two rows: the
-   logo and theme toggle on top, the MENU button below on the gutter. */
+/* ≤720 keeps the one row of 721–1299 (button, centred logo, theme toggle),
+   as Max Shakurov asked: the header must not break into two rows. The logo
+   shrinks to fit and is centred on the screen. */
 @media (max-width: 720px) {
   :root {
     --gutter: 20px;
-    --header-top-space: 0px;
   }
 
   .site-header {
-    position: sticky;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    height: auto;
-    row-gap: 14px;
-    padding-top: 22px;
     padding-right: var(--gutter);
-    padding-bottom: 16px;
   }
 
-  /* 16px: caps as tall as MENU, clear of the theme toggle; the 30px line keeps the row. */
+  /* 16px: caps as tall as MENU; the 30px line keeps the row. */
   .wordmark {
     font-size: 16px;
-    position: static;
-    order: -1;
-    width: 100%;
-    transform: none;
-    text-align: center;
-  }
-
-  .theme-toggle {
-    position: absolute;
-    top: 26px;
-    right: var(--gutter);
-  }
-
-  .menu-toggle {
-    margin-right: auto;
-  }
-
-  /* 4px under the button, which ends at the header's 16px bottom padding. */
-  .nav {
-    top: calc(100% - 12px);
   }
 
   .hero h1 {
@@ -920,6 +890,22 @@ a {
 
   .contact-email {
     font-size: clamp(26px, 7.6vw, 64px);
+  }
+}
+
+/* The word MENU no longer fits beside the centred logo: only the icon stays,
+   the label is hidden from the screen but still names the button. */
+@media (max-width: 480px) {
+  .menu-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
 
