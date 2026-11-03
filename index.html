@@ -24,7 +24,11 @@
   <body id="top">
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header" data-check="header">
-      <nav class="nav" aria-label="Primary">
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" data-check="menu-toggle">
+        <span class="menu-icon" aria-hidden="true"></span>
+        Menu
+      </button>
+      <nav class="nav" id="primary-nav" aria-label="Primary" data-check="nav">
         <a href="#work" data-nav="work" data-check="nav-first">Recent Work</a>
         <a href="#about" data-nav="about">About Me</a>
         <a href="cv/Max_Shakurov_Product_Designer_CV.pdf" download>

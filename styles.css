@@ -196,6 +196,10 @@ a {
   white-space: nowrap;
 }
 
+.menu-toggle {
+  display: none;
+}
+
 .theme-toggle {
   display: grid;
   place-items: center;
@@ -712,6 +716,73 @@ a {
   font-size: 13px;
   line-height: 16px;
   opacity: 0.7;
+}
+
+/* 1081–1299: the nav row runs into the centred logo (POR-12 measured it
+   overlapping up to 44px), so it folds into a MENU button with a dropdown,
+   as Max Shakurov asked. Narrower widths keep the stacked tablet header. */
+@media (min-width: 1081px) and (max-width: 1299px) {
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 36px;
+    /* The icon lines up with the gutter; the pill shows only when open. */
+    margin-left: -16px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 18px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    line-height: 20px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .menu-toggle:hover {
+    color: var(--accent);
+  }
+
+  .menu-toggle[aria-expanded="true"] {
+    background: color-mix(in srgb, var(--text-primary) 14%, var(--bg));
+  }
+
+  .menu-icon {
+    width: 18px;
+    height: 8px;
+    border-top: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+  }
+
+  .nav {
+    position: absolute;
+    /* 4px under the button: row centre (half of header + top padding) + 18 + 4. */
+    top: calc((var(--header-height) + 8px + var(--header-top-space) * 2) / 2 + 22px);
+    left: calc(var(--gutter) - 16px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    min-width: 220px;
+    padding: 28px;
+    border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--text-primary) 4%, var(--bg));
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+
+  .site-header.is-menu-open .nav {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
 }
 
 @media (max-width: 1200px) {

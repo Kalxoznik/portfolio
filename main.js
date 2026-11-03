@@ -29,6 +29,38 @@ toggle?.addEventListener("click", () => {
   applyTheme(next);
 });
 
+const menuToggle = document.querySelector(".menu-toggle");
+const nav = document.querySelector(".nav");
+const menuMedia = window.matchMedia("(min-width: 1081px) and (max-width: 1299px)");
+
+function setMenuOpen(open) {
+  if (!menuToggle || !header) return;
+  header.classList.toggle("is-menu-open", open);
+  menuToggle.setAttribute("aria-expanded", String(open));
+}
+
+menuToggle?.addEventListener("click", () => {
+  setMenuOpen(menuToggle.getAttribute("aria-expanded") !== "true");
+});
+
+nav?.addEventListener("click", (event) => {
+  if (event.target.closest("a")) setMenuOpen(false);
+});
+
+document.addEventListener("click", (event) => {
+  if (header?.classList.contains("is-menu-open") && !event.target.closest(".menu-toggle, .nav")) {
+    setMenuOpen(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !header?.classList.contains("is-menu-open")) return;
+  setMenuOpen(false);
+  menuToggle.focus();
+});
+
+menuMedia.addEventListener("change", () => setMenuOpen(false));
+
 function setActiveNav() {
   if (!navLinks.length) return;
   const offset = (header ? header.getBoundingClientRect().bottom : 0) + 24;

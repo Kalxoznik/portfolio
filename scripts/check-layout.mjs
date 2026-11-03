@@ -202,6 +202,54 @@ try {
   num("scrolled: logo top (text, viewport)", 54, vp(s.logo, "textTop"));
   num("scrolled: nav text top (text, viewport)", 58, vp(s.nav, "textTop"));
 
+  // 1081–1299: the nav folds into a MENU button, which must clear the centred
+  // logo by the 26px nav gap; from 1300 the full nav row clears it (POR-12).
+  // Edges: the logo's text via a Range, the button's or nav's border box.
+  // Scrolled to the work section, so "Recent Work" is bold, its widest state;
+  // 300ms lets the nav's visibility transition finish after the resize.
+  async function headerGap(width) {
+    await page.setViewportSize({ width, height: 900 });
+    return page.evaluate(async () => {
+      window.scrollTo(0, document.getElementById("work").offsetTop);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise((r) => setTimeout(r, 300));
+      const button = document.querySelector('[data-check="menu-toggle"]');
+      const nav = document.querySelector('[data-check="nav"]');
+      const logo = document.querySelector('[data-check="logo"]');
+      const range = document.createRange();
+      range.selectNodeContents(logo);
+      const menu = getComputedStyle(button).display !== "none";
+      const left = menu ? button : nav;
+      return {
+        menu,
+        navVisible: getComputedStyle(nav).visibility === "visible",
+        gap: range.getBoundingClientRect().left - left.getBoundingClientRect().right,
+      };
+    });
+  }
+  for (const width of [1081, 1201, 1299]) {
+    const g = await headerGap(width);
+    flag(`menu button shown, nav hidden @${width}`, "yes", g.menu && !g.navVisible ? "yes" : "no", g.menu && !g.navVisible);
+    flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
+  }
+  const menuStates = await page.evaluate(async () => {
+    const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const button = document.querySelector('[data-check="menu-toggle"]');
+    const nav = document.querySelector('[data-check="nav"]');
+    const state = () => `${button.getAttribute("aria-expanded")}/${getComputedStyle(nav).visibility}`;
+    button.click();
+    await frames();
+    const opened = state();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await new Promise((r) => setTimeout(r, 300));
+    return { opened, closed: state() };
+  });
+  flag("menu opens on click @1299", "true/visible", menuStates.opened, menuStates.opened === "true/visible");
+  flag("menu closes on Escape @1299", "false/hidden", menuStates.closed, menuStates.closed === "false/hidden");
+  const g1300 = await headerGap(1300);
+  flag("nav row shown, no menu button @1300", "yes", !g1300.menu && g1300.navVisible ? "yes" : "no", !g1300.menu && g1300.navVisible);
+  flag("nav→logo gap ≥ 26 @1300", "≥ 26", fmt(g1300.gap), g1300.gap >= 26);
+
   await page.setViewportSize({ width: 375, height: 812 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const over375 = await page.evaluate(overflowX);
