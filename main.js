@@ -3,6 +3,7 @@
 const root = document.documentElement;
 const toggle = document.querySelector(".theme-toggle");
 const navLinks = document.querySelectorAll("[data-nav]");
+const wordmark = document.querySelector(".wordmark");
 const header = document.querySelector(".site-header");
 
 function themeLabel(theme) {
@@ -85,6 +86,8 @@ function setActiveNav() {
     if (id && id === current) link.setAttribute("aria-current", "true");
     else link.removeAttribute("aria-current");
   });
+  if (current === null) wordmark?.setAttribute("aria-current", "true");
+  else wordmark?.removeAttribute("aria-current");
 }
 
 window.addEventListener("scroll", setActiveNav, { passive: true });

@@ -186,7 +186,7 @@ a {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  color: var(--accent);
+  color: var(--text-primary);
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
@@ -194,6 +194,10 @@ a {
   line-height: 30px;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.wordmark[aria-current="true"] {
+  color: var(--accent);
 }
 
 .menu-toggle {
