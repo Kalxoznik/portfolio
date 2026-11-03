@@ -115,16 +115,17 @@ a {
 
 .site-header {
   position: sticky;
-  top: calc(var(--header-top-space) * -1);
+  top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: calc(var(--header-height) + var(--header-top-space));
-  /* At the top of the page the row sits 6px below Figma (POR-9: Max Shakurov
-     asked to lower it 15px, then to raise it 9px). Once scrolled, the header is 118 tall and the row centre
-     is at y=63, as in Figma (8px padding). */
-  padding: calc(8px + var(--header-top-space)) 73px 0 var(--gutter);
+  height: var(--header-height);
+  /* The row sits 6px below Figma (POR-9: Max Shakurov asked to lower it 15px,
+     then to raise it 9px), at the top of the page and once scrolled alike, so
+     the header never moves with the page. Figma: 8px padding, row centre at
+     y=63; the row is centred, so each 1px of top space takes 2px of padding. */
+  padding: calc(8px + var(--header-top-space) * 2) 73px 0 var(--gutter);
   background-color: var(--bg);
   background-image: radial-gradient(
     circle,
@@ -244,8 +245,8 @@ a {
    scaled with the viewport height but never under the header. */
 .hero {
   min-height: 100svh;
-  margin-top: calc((var(--header-height) + var(--header-top-space)) * -1);
-  padding: max(var(--header-height) + var(--header-top-space), calc(100svh * 364 / 1080)) var(--gutter) 0;
+  margin-top: calc(var(--header-height) * -1);
+  padding: max(var(--header-height), calc(100svh * 364 / 1080)) var(--gutter) 0;
 }
 
 .hero-copy {

@@ -166,9 +166,9 @@ try {
   flag("scrolled to top (scrollY)", "0", m.scrollY, m.scrollY === 0);
   flag("body background", "rgb(22, 21, 20)", m.bodyBg, m.bodyBg === "rgb(22, 21, 20)");
 
-  // +6: at the top of the page the header row sits 6px below Figma, as
-  // Max Shakurov asked (POR-9). Figma: header 118, logo 48, nav 52.
-  num("header height", 124, v(m.header, "height"));
+  // +6: the header row sits 6px below Figma, as Max Shakurov asked (POR-9).
+  // Figma: header 118, logo 48, nav 52.
+  num("header height", 118, v(m.header, "height"));
   num("logo MAXSHAKUROV top (text)", 54, v(m.logo, "textTop"));
   // 19.5: Max Shakurov's Photoshop overlay is at 2x and the Figma logo M there is 39 px.
   num("logo cap height (M ink)", 19.5, m.logoCapHeight, 0.5);
@@ -189,8 +189,8 @@ try {
   const over1920 = await page.evaluate(overflowX);
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
 
-  // Scrolled to the first case: the sticky header is back to the Figma numbers.
-  // Viewport coordinates (page position minus scrollY).
+  // Scrolled to the first case: the sticky header has not moved, the row is
+  // still 6px below Figma. Viewport coordinates (page position minus scrollY).
   await page.evaluate(async () => {
     window.scrollTo(0, 1080);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -199,8 +199,8 @@ try {
   const vp = (box, key) => (box ? box[key] - s.scrollY : null);
   flag("scrolled to first case (scrollY)", "1080", s.scrollY, s.scrollY === 1080);
   num("scrolled: header bottom (viewport)", 118, s.header ? s.header.top + s.header.height - s.scrollY : null);
-  num("scrolled: logo top (text, viewport)", 48, vp(s.logo, "textTop"));
-  num("scrolled: nav text top (text, viewport)", 52, vp(s.nav, "textTop"));
+  num("scrolled: logo top (text, viewport)", 54, vp(s.logo, "textTop"));
+  num("scrolled: nav text top (text, viewport)", 58, vp(s.nav, "textTop"));
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
