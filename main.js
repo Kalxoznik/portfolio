@@ -116,7 +116,9 @@ const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // the dots line up with the rest of the page. Mouse only, motion on only;
 // otherwise the body's own dots stay as they are. The canvas runs RADIUS past
 // the hero's bottom edge and the reach shrinks below it, so a pushed dot never
-// leaves the canvas and the ring is not cut off at the seam.
+// leaves the canvas and the ring is not cut off at the seam. Up top it starts
+// at the top of the page: at 1080 and below the hero sits under the header,
+// whose see-through strip would otherwise show still body dots.
 const hero = document.querySelector(".hero");
 
 if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
@@ -132,6 +134,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
   const dots = [];
   let width = 0;
   let height = 0;
+  let offset = 0;
   let pointer = null;
   let frame = 0;
   let lastTime = 0;
@@ -140,18 +143,20 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
 
   function build() {
     const ratio = window.devicePixelRatio || 1;
+    const rect = hero.getBoundingClientRect();
+    const left = rect.left + window.scrollX;
+    // The canvas starts at the top of the page, so its height counts from there.
+    offset = Math.max(0, rect.top + window.scrollY);
     width = hero.offsetWidth;
-    height = hero.offsetHeight;
+    height = offset + hero.offsetHeight;
+    canvas.style.top = `${-offset}px`;
     canvas.style.height = `${height + RADIUS}px`;
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round((height + RADIUS) * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     dots.length = 0;
-    const rect = hero.getBoundingClientRect();
-    const left = rect.left + window.scrollX;
-    const top = rect.top + window.scrollY;
     const startX = (((GRID / 2 - left) % GRID) + GRID) % GRID;
-    const startY = (((GRID / 2 - top) % GRID) + GRID) % GRID;
+    const startY = GRID / 2;
     for (let y = startY; y < height + RADIUS + GRID; y += GRID) {
       for (let x = startX; x < width + GRID; x += GRID) {
         dots.push({ x, y, ox: 0, oy: 0 });
@@ -199,7 +204,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     const ease = 1 - Math.pow(0.82, dt * 60);
     const rect = hero.getBoundingClientRect();
     const px = pointer ? pointer.x - rect.left : 0;
-    const py = pointer ? pointer.y - rect.top : 0;
+    const py = pointer ? pointer.y - rect.top + offset : 0;
     // Below the hero the circle shrinks, so pushed dots stay on the canvas.
     const reach = pointer ? Math.min(RADIUS, height + RADIUS - py) : 0;
     let moving = false;
@@ -244,7 +249,8 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
 
   // A cursor below the canvas over resting dots needs no frame.
   function wakeNear() {
-    if (!displaced && pointer.y - hero.getBoundingClientRect().top >= height + RADIUS) return;
+    const py = pointer.y - hero.getBoundingClientRect().top + offset;
+    if (!displaced && py >= height + RADIUS) return;
     wake();
   }
 
@@ -269,10 +275,14 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     wake();
   }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 
-  new ResizeObserver(() => {
+  // The hero's top moves at the 1080 breakpoint, which a size change may miss.
+  function rebuild() {
     build();
     draw();
-  }).observe(hero);
+  }
+
+  new ResizeObserver(rebuild).observe(hero);
+  window.addEventListener("resize", rebuild);
 }
 
 document.querySelectorAll(".case").forEach((caseEl) => {

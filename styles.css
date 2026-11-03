@@ -271,7 +271,8 @@ a {
 /* main.js redraws the page's dots over the first screen and pushes them away
    from the cursor (POR-17). The canvas hides the body's own dots there with
    the plain background and sits under the header and the hero text. It runs
-   on under the top of the next section; main.js sets its height. */
+   on under the top of the next section and, where the hero sits under the
+   header, up to the top of the page; main.js sets its top and height. */
 .hero-dots {
   position: absolute;
   top: 0;
