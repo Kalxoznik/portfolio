@@ -31,7 +31,7 @@ toggle?.addEventListener("click", () => {
 
 const menuToggle = document.querySelector(".menu-toggle");
 const nav = document.querySelector(".nav");
-const menuMedia = window.matchMedia("(1080px < width < 1300px)");
+const menuMedia = window.matchMedia("(width < 1300px)");
 
 function setMenuOpen(open) {
   if (!menuToggle || !header) return;

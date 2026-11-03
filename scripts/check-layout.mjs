@@ -231,13 +231,13 @@ try {
   const backBg = await headerBgAt(0);
   flag("header transparent again back at top", CLEAR, backBg, backBg === CLEAR);
 
-  // 1081–1299: the nav folds into a MENU button, which must clear the centred
+  // Under 1300 the nav folds into a MENU button, which must clear the centred
   // logo by the 26px nav gap; from 1300 the full nav row clears it (POR-12).
   // Edges: the logo's text via a Range, the button's or nav's border box.
   // Scrolled to the work section, so "Recent Work" is bold, its widest state;
   // 300ms lets the nav's visibility transition finish after the resize.
-  async function headerGap(width) {
-    await page.setViewportSize({ width, height: 900 });
+  async function headerGap(width, height = 900) {
+    await page.setViewportSize({ width, height });
     return page.evaluate(async () => {
       window.scrollTo(0, document.getElementById("work").offsetTop);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -249,18 +249,60 @@ try {
       range.selectNodeContents(logo);
       const menu = getComputedStyle(button).display !== "none";
       const left = menu ? button : nav;
+      const logoText = range.getBoundingClientRect();
+      const logoCs = getComputedStyle(logo);
+      const buttonRect = button.getBoundingClientRect();
       return {
         menu,
         navVisible: getComputedStyle(nav).visibility === "visible",
-        gap: range.getBoundingClientRect().left - left.getBoundingClientRect().right,
+        gap: logoText.left - left.getBoundingClientRect().right,
+        // Viewport coordinates, the header being sticky.
+        headerHeight: document.querySelector('[data-check="header"]').getBoundingClientRect().height,
+        logoTop: logo.getBoundingClientRect().top + parseFloat(logoCs.borderTopWidth) + parseFloat(logoCs.paddingTop),
+        logoBottom: logoText.bottom,
+        buttonTop: buttonRect.top,
       };
     });
   }
-  for (const width of [1081, 1201, 1299]) {
+  const menuShown = (g) => g.menu && !g.navVisible;
+  for (const width of [1081, 1201, 1299, 1080, 721]) {
     const g = await headerGap(width);
-    flag(`menu button shown, nav hidden @${width}`, "yes", g.menu && !g.navVisible ? "yes" : "no", g.menu && !g.navVisible);
+    flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
     flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
+    // Across 1080 the header must not jump: same row as at 1081.
+    if (width === 1080) {
+      num("header height @1080 (viewport)", 118, g.headerHeight);
+      num("logo top @1080 (text, viewport)", 54, g.logoTop);
+    }
   }
+  // ≤720: two rows, the MENU button under the logo.
+  for (const [width, height] of [[720, 900], [375, 812]]) {
+    const g = await headerGap(width, height);
+    flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
+    flag(`menu button below logo text @${width}`, `> ${fmt(g.logoBottom)}`, fmt(g.buttonTop), g.buttonTop > g.logoBottom);
+  }
+  // Still 375: the panel opens below the button and stays on screen.
+  const phoneMenu = await page.evaluate(async () => {
+    const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const button = document.querySelector('[data-check="menu-toggle"]');
+    const nav = document.querySelector('[data-check="nav"]');
+    const state = () => `${button.getAttribute("aria-expanded")}/${getComputedStyle(nav).visibility}`;
+    button.click();
+    await frames();
+    const opened = state();
+    const panel = nav.getBoundingClientRect();
+    const buttonBottom = button.getBoundingClientRect().bottom;
+    const overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await new Promise((r) => setTimeout(r, 300));
+    return { opened, panelTop: panel.top, panelRight: panel.right, buttonBottom, overflow, closed: state() };
+  });
+  flag("menu opens on click @375", "true/visible", phoneMenu.opened, phoneMenu.opened === "true/visible");
+  flag("panel top below button @375", `> ${fmt(phoneMenu.buttonBottom)}`, fmt(phoneMenu.panelTop), phoneMenu.panelTop > phoneMenu.buttonBottom);
+  flag("panel right edge ≤ 375", "≤ 375", fmt(phoneMenu.panelRight), phoneMenu.panelRight <= 375);
+  flag("no horizontal scroll, menu open @375", "0", phoneMenu.overflow, phoneMenu.overflow <= 0);
+  flag("menu closes on Escape @375", "false/hidden", phoneMenu.closed, phoneMenu.closed === "false/hidden");
+  await headerGap(1299);
   const menuStates = await page.evaluate(async () => {
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const button = document.querySelector('[data-check="menu-toggle"]');

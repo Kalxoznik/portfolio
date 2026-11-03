@@ -718,10 +718,10 @@ a {
   opacity: 0.7;
 }
 
-/* 1081–1299: the nav row runs into the centred logo (POR-12 measured it
-   overlapping up to 44px), so it folds into a MENU button with a dropdown,
-   as Max Shakurov asked. Narrower widths keep the stacked tablet header. */
-@media (1080px < width < 1300px) {
+/* Under 1300 the nav row runs into the centred logo (POR-12 measured it
+   overlapping up to 44px at 1081), so it folds into a MENU button with a
+   dropdown at every narrower width, as Max Shakurov asked. */
+@media (width < 1300px) {
   .menu-toggle {
     display: inline-flex;
     align-items: center;
@@ -809,7 +809,37 @@ a {
 }
 
 @media (max-width: 1080px) {
+  .hero {
+    min-height: auto;
+    margin-top: 0;
+    padding-top: 48px;
+    padding-bottom: 72px;
+  }
+
+  .work {
+    scroll-margin-top: var(--header-height);
+  }
+
+  .case {
+    min-height: auto;
+    padding-top: 0;
+  }
+
+  .slide {
+    width: min(660px, 78vw);
+  }
+
+  .slide-wide {
+    width: min(953px, 86vw);
+  }
+}
+
+/* 721–1299 keep the desktop row (button, centred logo, theme toggle). Here
+   the 26px logo fills most of the width, so the header takes two rows: the
+   logo and theme toggle on top, the MENU button below on the gutter. */
+@media (max-width: 720px) {
   :root {
+    --gutter: 20px;
     --header-top-space: 0px;
   }
 
@@ -839,46 +869,13 @@ a {
     right: var(--gutter);
   }
 
+  .menu-toggle {
+    margin-right: auto;
+  }
+
+  /* 4px under the button, which ends at the header's 16px bottom padding. */
   .nav {
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    order: 1;
-    gap: 12px 20px;
-  }
-
-  .hero {
-    min-height: auto;
-    margin-top: 0;
-    padding-top: 48px;
-    padding-bottom: 72px;
-  }
-
-  .work {
-    scroll-margin-top: var(--header-height);
-  }
-
-  .case {
-    min-height: auto;
-    padding-top: 0;
-  }
-
-  .slide {
-    width: min(660px, 78vw);
-  }
-
-  .slide-wide {
-    width: min(953px, 86vw);
-  }
-}
-
-@media (max-width: 720px) {
-  :root {
-    --gutter: 20px;
-  }
-
-  .nav a {
-    font-size: 16px;
+    top: calc(100% - 12px);
   }
 
   .hero h1 {
