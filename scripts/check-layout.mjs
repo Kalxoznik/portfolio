@@ -261,6 +261,8 @@ try {
       const logoText = range.getBoundingClientRect();
       const logoCs = getComputedStyle(logo);
       const buttonRect = button.getBoundingClientRect();
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = `${logoCs.fontWeight} ${logoCs.fontSize} ${logoCs.fontFamily}`;
       return {
         menu,
         navVisible: getComputedStyle(nav).visibility === "visible",
@@ -270,6 +272,11 @@ try {
         logoTop: logo.getBoundingClientRect().top + parseFloat(logoCs.borderTopWidth) + parseFloat(logoCs.paddingTop),
         logoBottom: logoText.bottom,
         buttonTop: buttonRect.top,
+        logoCapHeight: ctx.measureText("M").actualBoundingBoxAscent,
+        logoCenter: (logoText.left + logoText.right) / 2,
+        logoRight: logoText.right,
+        halfWidth: document.documentElement.clientWidth / 2,
+        toggleLeft: document.querySelector(".theme-toggle").getBoundingClientRect().left,
       };
     });
   }
@@ -283,12 +290,24 @@ try {
       num("header height @1080 (viewport)", 118, g.headerHeight);
       num("logo top @1080 (text, viewport)", 54, g.logoTop);
     }
+    if (width === 721) {
+      num("header height @721 (viewport)", 118, g.headerHeight);
+      num("logo cap height @721 (M ink)", 19.5, g.logoCapHeight, 0.5);
+    }
   }
   // ≤720: two rows, the MENU button under the logo.
   for (const [width, height] of [[720, 900], [375, 812]]) {
     const g = await headerGap(width, height);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
     flag(`menu button below logo text @${width}`, `> ${fmt(g.logoBottom)}`, fmt(g.buttonTop), g.buttonTop > g.logoBottom);
+    // The logo is 20px here and centred on the screen, the row height unchanged.
+    num(`header height @${width} (viewport)`, 118, g.headerHeight);
+    num(`logo cap height @${width} (M ink)`, 15, g.logoCapHeight, 0.5);
+    num(`logo text centre = clientWidth / 2 @${width}`, g.halfWidth, g.logoCenter, 1);
+    if (width === 375) {
+      const toToggle = g.toggleLeft - g.logoRight;
+      flag("logo→theme toggle gap ≥ 26 @375", "≥ 26", fmt(toToggle), toToggle >= 26);
+    }
   }
   // Still 375: the panel opens below the button and stays on screen.
   const phoneMenu = await page.evaluate(async () => {

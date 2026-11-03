@@ -853,10 +853,13 @@ a {
     height: auto;
     row-gap: 14px;
     padding-top: 22px;
+    padding-right: var(--gutter);
     padding-bottom: 16px;
   }
 
+  /* 20px keeps the logo clear of the theme toggle; the 30px line keeps the row. */
   .wordmark {
+    font-size: 20px;
     position: static;
     order: -1;
     width: 100%;
