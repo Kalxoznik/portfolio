@@ -254,8 +254,21 @@ try {
         const range = document.createRange();
         range.setStart(last, end - 1);
         range.setEnd(last, end);
+        // The character after the link (a comma) must stay on the arrow's line
+        // too. A word joiner before it is skipped; a space may wrap, so no check.
+        let after = null;
+        const next = link.nextSibling;
+        if (next && next.nodeType === Node.TEXT_NODE) {
+          const i = next.data.search(/[^⁠]/);
+          if (i >= 0 && !/\s/.test(next.data[i])) {
+            after = document.createRange();
+            after.setStart(next, i);
+            after.setEnd(next, i + 1);
+          }
+        }
         const full = Math.floor(p.getBoundingClientRect().width);
         const bad = [];
+        const badAfter = [];
         p.style.transition = "none";
         for (let w = full; w >= 240; w--) {
           p.style.width = `${w}px`;
@@ -265,16 +278,24 @@ try {
           const sameLine = mid > ch.top && mid < ch.bottom;
           const gap = ar.left - ch.right;
           if (!sameLine || Math.abs(gap - 3) > 0.5) bad.push(w);
+          if (after) {
+            const nx = after.getBoundingClientRect();
+            if (!(mid > nx.top && mid < nx.bottom)) badAfter.push(w);
+          }
         }
         p.style.width = "";
         p.style.transition = "";
-        return { name: link.textContent.trim(), full, bad };
+        return { name: link.textContent.trim(), full, bad, after: after && after.toString(), badAfter };
       })
   );
   flag("experience links with an arrow", "3", arrowWraps.length, arrowWraps.length === 3);
   for (const a of arrowWraps) {
     const shown = a.bad.length ? `${a.bad.length} (${a.bad.slice(0, 3).join(", ")}…)` : "0";
     flag(`"${a.name}" arrow on last char's line, 3px after, widths ${a.full}→240`, "0 failing", shown, a.bad.length === 0);
+    if (a.after) {
+      const shownAfter = a.badAfter.length ? `${a.badAfter.length} (${a.badAfter.slice(0, 3).join(", ")}…)` : "0";
+      flag(`"${a.name}" "${a.after}" after the link on the arrow's line, widths ${a.full}→240`, "0 failing", shownAfter, a.badAfter.length === 0);
+    }
   }
   // Hovered, the arrow takes the accent colour with the text. Read after
   // 50ms, once the (reduced-motion, 0.01ms) colour transition is over.
