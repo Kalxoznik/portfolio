@@ -290,6 +290,7 @@ try {
     const g = await headerGap(width);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
     flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
+    flag(`menu label hidden, width ≤ 1 @${width}`, "≤ 1", fmt(g.labelWidth), g.labelWidth <= 1);
     // Across 1080 the header must not jump: same row as at 1081.
     if (width === 1080) {
       num("header height @1080 (viewport)", 118, g.headerHeight);
@@ -301,7 +302,7 @@ try {
     }
   }
   // ≤720: the same one row; the logo is 16px and centred on the screen, and
-  // at ≤480 the button keeps only its icon.
+  // the button shows only its icon at every width (POR-16).
   for (const [width, height] of [[720, 900], [481, 900], [480, 900], [375, 812]]) {
     const g = await headerGap(width, height);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
@@ -309,13 +310,7 @@ try {
     flag(`button, logo, toggle centres in one row @${width}`, "±1", fmt(offRow), offRow <= 1);
     num(`logo top @${width} (text, viewport)`, 54, g.logoTop);
     flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
-    const labelShown = width > 480;
-    flag(
-      `menu label width ${labelShown ? "> 40" : "≤ 1"} @${width}`,
-      labelShown ? "> 40" : "≤ 1",
-      fmt(g.labelWidth),
-      labelShown ? g.labelWidth > 40 : g.labelWidth <= 1,
-    );
+    flag(`menu label hidden, width ≤ 1 @${width}`, "≤ 1", fmt(g.labelWidth), g.labelWidth <= 1);
     if (width !== 720 && width !== 375) continue;
     num(`header height @${width} (viewport)`, 118, g.headerHeight);
     num(`logo cap height @${width} (M ink)`, 12, g.logoCapHeight, 0.5);

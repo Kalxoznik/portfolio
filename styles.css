@@ -200,6 +200,20 @@ a {
   display: none;
 }
 
+/* The button shows only its two lines, as Max Shakurov asked: the word MENU
+   is hidden from the screen but still names the button. */
+.menu-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .theme-toggle {
   display: grid;
   place-items: center;
@@ -719,7 +733,7 @@ a {
 }
 
 /* Under 1300 the nav row runs into the centred logo (POR-12 measured it
-   overlapping up to 44px at 1081), so it folds into a MENU button with a
+   overlapping up to 44px at 1081), so it folds into a menu button with a
    dropdown at every narrower width, as Max Shakurov asked. */
 @media (width < 1300px) {
   .menu-toggle {
@@ -846,7 +860,7 @@ a {
     padding-right: var(--gutter);
   }
 
-  /* 16px: caps as tall as MENU; the 30px line keeps the row. */
+  /* 16px caps; the 30px line keeps the row. */
   .wordmark {
     font-size: 16px;
   }
@@ -889,22 +903,6 @@ a {
 
   .contact-email {
     font-size: clamp(26px, 7.6vw, 64px);
-  }
-}
-
-/* The word MENU no longer fits beside the centred logo: only the icon stays,
-   the label is hidden from the screen but still names the button. */
-@media (max-width: 480px) {
-  .menu-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 }
 
