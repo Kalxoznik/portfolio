@@ -671,6 +671,15 @@ a {
   text-underline-offset: 2px;
 }
 
+/* The LinkedIn nav arrow, scaled down from 16px to sit with 16px body text. */
+.text-link-arrow {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+  vertical-align: 0;
+}
+
 .site-footer {
   display: flex;
   flex-direction: column;
