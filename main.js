@@ -754,6 +754,50 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   });
 });
 
+// Link hover (POR-24): every letter rolls up and its copy rolls in from below,
+// one after another from the left, while the underline draws in. Each letter
+// sits in a clip box one line tall; the copy is its text-shadow one line down.
+// Words keep their letters together; the email may break anywhere, as before.
+// The link's name stays its plain text for screen readers.
+document.querySelectorAll(".nav a, .text-link, .footer-links a, .contact-email").forEach((link) => {
+  if (!link.hasAttribute("aria-label")) link.setAttribute("aria-label", link.textContent.replace(/\s+/g, " ").trim());
+  let label = link.querySelector(":scope > span");
+  if (!label) {
+    label = document.createElement("span");
+    const text = [...link.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && node.data.trim());
+    text.replaceWith(label);
+    label.appendChild(document.createTextNode(text.data.trim()));
+  }
+  label.classList.add("link-label");
+  const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  let index = 0;
+  texts.forEach((node) => {
+    const parts = document.createDocumentFragment();
+    node.data.split(/(\s+)/).forEach((part) => {
+      if (!part) return;
+      if (/^\s/.test(part)) {
+        parts.appendChild(document.createTextNode(part));
+        return;
+      }
+      const word = document.createElement("span");
+      word.className = "roll-word";
+      for (const char of part) {
+        const box = document.createElement("span");
+        const glyph = document.createElement("span");
+        box.className = "roll-char";
+        box.style.setProperty("--i", index++);
+        glyph.textContent = char;
+        box.appendChild(glyph);
+        word.appendChild(box);
+      }
+      parts.appendChild(word);
+    });
+    node.replaceWith(parts);
+  });
+});
+
 const copyButton = document.querySelector(".copy-email");
 const email = "max.shakurov@gmail.com";
 let copyTimer = 0;
