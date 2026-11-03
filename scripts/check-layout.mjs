@@ -666,7 +666,7 @@ try {
   await timelineChecks(375);
 
   // Current item's halo (POR-25). Reduced motion: the still 6px shadow at 32%,
-  // no ::after. Motion on: ::after grows from the 12px dot to 48px and fades,
+  // no ::after. Motion on: ::after grows from the 12px dot to 36px and fades,
   // forever; the shadow is gone. Frames are read by pausing the animation and
   // seeking it, so the numbers do not depend on when the read lands.
   const halo = () =>
@@ -695,7 +695,7 @@ try {
         duration: timing?.duration,
         easing: ring.animationTimingFunction,
         start: anim ? frame(0) : null,
-        end: anim ? frame(1999.9) : null,
+        end: anim ? frame(timing.duration - 0.1) : null,
         clientWidth: document.documentElement.clientWidth,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
@@ -713,14 +713,14 @@ try {
     const h = await halo();
     if (width === 1920) {
       flag("motion on: halo ::after animates forever", "Infinity", String(h.iterations), h.iterations === Infinity);
-      flag("motion on: halo runs 2s, ease-out", "2000 / cubic-bezier(0, 0, 0.2, 1)", `${fmt(h.duration)} / ${h.easing}`, h.duration === 2000 && h.easing === "cubic-bezier(0, 0, 0.2, 1)");
+      flag("motion on: halo runs 1.5s, ease-out", "1500 / cubic-bezier(0, 0, 0.2, 1)", `${fmt(h.duration)} / ${h.easing}`, h.duration === 1500 && h.easing === "cubic-bezier(0, 0, 0.2, 1)");
       flag("motion on: dot has no shadow", "none", h.shadow, h.shadow === "none");
       flag("motion on: halo first frame ≤ 12px", "≤ 12", fmt(h.start?.size), h.start != null && h.start.size <= 12.01);
-      num("motion on: halo last frame size", 48, h.end?.size, 0.5);
+      num("motion on: halo last frame size", 36, h.end?.size, 0.5);
       num("motion on: halo last frame opacity", 0, h.end?.opacity, 0.01);
     }
     const inside = h.end != null && h.end.left >= 0 && h.end.right <= h.clientWidth;
-    flag(`motion on: halo at 48px inside the window @${width}`, `0 … ${h.clientWidth}`, h.end ? `${fmt(h.end.left)} … ${fmt(h.end.right)}` : "missing", inside);
+    flag(`motion on: halo at 36px inside the window @${width}`, `0 … ${h.clientWidth}`, h.end ? `${fmt(h.end.left)} … ${fmt(h.end.right)}` : "missing", inside);
     flag(`motion on: no horizontal scroll, halo at max @${width}`, "0", h.overflow, h.overflow <= 0);
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
