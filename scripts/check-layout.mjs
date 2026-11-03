@@ -300,9 +300,9 @@ try {
     const g = await headerGap(width, height);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
     flag(`menu button below logo text @${width}`, `> ${fmt(g.logoBottom)}`, fmt(g.buttonTop), g.buttonTop > g.logoBottom);
-    // The logo is 20px here and centred on the screen, the row height unchanged.
+    // The logo is 16px here and centred on the screen, the row height unchanged.
     num(`header height @${width} (viewport)`, 118, g.headerHeight);
-    num(`logo cap height @${width} (M ink)`, 15, g.logoCapHeight, 0.5);
+    num(`logo cap height @${width} (M ink)`, 12, g.logoCapHeight, 0.5);
     num(`logo text centre = clientWidth / 2 @${width}`, g.halfWidth, g.logoCenter, 1);
     if (width === 375) {
       const toToggle = g.toggleLeft - g.logoRight;
