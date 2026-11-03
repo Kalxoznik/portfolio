@@ -166,13 +166,13 @@ try {
   flag("scrolled to top (scrollY)", "0", m.scrollY, m.scrollY === 0);
   flag("body background", "rgb(22, 21, 20)", m.bodyBg, m.bodyBg === "rgb(22, 21, 20)");
 
-  // +15: at the top of the page the header row sits 15px below Figma, as
+  // +6: at the top of the page the header row sits 6px below Figma, as
   // Max Shakurov asked (POR-9). Figma: header 118, logo 48, nav 52.
-  num("header height", 133, v(m.header, "height"));
-  num("logo MAXSHAKUROV top (text)", 63, v(m.logo, "textTop"));
+  num("header height", 124, v(m.header, "height"));
+  num("logo MAXSHAKUROV top (text)", 54, v(m.logo, "textTop"));
   // 19.5: Max Shakurov's Photoshop overlay is at 2x and the Figma logo M there is 39 px.
   num("logo cap height (M ink)", 19.5, m.logoCapHeight, 0.5);
-  num("nav text top (text)", 67, v(m.nav, "textTop"));
+  num("nav text top (text)", 58, v(m.nav, "textTop"));
   num("nav left x (text)", 77, v(m.nav, "textLeft"));
   num("hero title top (text)", 364, v(m.heroTitle, "textTop"));
   num("hero subline top (text)", 633, v(m.heroLead, "textTop"));

@@ -20,7 +20,7 @@
   --gutter: 77px;
   --header-height: 118px;
   /* Extra room above the header row at the very top of the page only. */
-  --header-top-space: 15px;
+  --header-top-space: 6px;
   --content-width: 1766px;
   --font-display: "Unbounded", sans-serif;
   --font-ui: "Inter", sans-serif;
@@ -121,8 +121,8 @@ a {
   align-items: center;
   justify-content: space-between;
   height: calc(var(--header-height) + var(--header-top-space));
-  /* At the top of the page the row sits 15px below Figma, as Max Shakurov
-     asked (POR-9). Once scrolled, the header is 118 tall and the row centre
+  /* At the top of the page the row sits 6px below Figma (POR-9: Max Shakurov
+     asked to lower it 15px, then to raise it 9px). Once scrolled, the header is 118 tall and the row centre
      is at y=63, as in Figma (8px padding). */
   padding: calc(8px + var(--header-top-space)) 73px 0 var(--gutter);
   background-color: var(--bg);
