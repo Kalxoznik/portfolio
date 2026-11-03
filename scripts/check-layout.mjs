@@ -298,8 +298,8 @@ try {
     }
   }
   // Link hover (POR-24): at rest no link shows an underline, neither the
-  // drawn-in line (label background width 0) nor text-decoration, and the
-  // logo is left whole, not split into rolling letters.
+  // drawn-in line (label background width 0) nor text-decoration. The logo
+  // rolls too (11 letters); the big email is left whole, it copies on click.
   const linkRest = await page.evaluate(() => {
     const links = [...document.querySelectorAll("a:not(.skip-link)")];
     const underlined = links.filter((a) => {
@@ -311,11 +311,60 @@ try {
     const logo = document.querySelector('[data-check="logo"]');
     return {
       underlined: underlined.map((a) => a.textContent.trim()),
-      logoSplit: logo.querySelectorAll(".roll-char, .link-label").length,
+      logoChars: logo.querySelectorAll(".roll-char").length,
+      emailSplit: document.querySelectorAll('[data-check="contact-email"] :is(.roll-char, .link-label)').length,
     };
   });
   flag("links at rest: underlined", "0", linkRest.underlined.length ? linkRest.underlined.join(", ") : "0", linkRest.underlined.length === 0);
-  flag("logo: rolling letters", "0", linkRest.logoSplit, linkRest.logoSplit === 0);
+  flag("logo: rolling letters", "11", linkRest.logoChars, linkRest.logoChars === 11);
+  flag("email: rolling letters", "0", linkRest.emailSplit, linkRest.emailSplit === 0);
+  // Hovered below the top of the page, where the logo is not current (so not
+  // accent at rest): its line is drawn in full and it takes the accent.
+  // The email instead dims to --text-secondary. Wait for the transitions.
+  // Reads frame by frame for up to 2s until both land; on timeout the rows
+  // fail and show what was found.
+  async function hoverColor(selector, labelSelector, colorVar, line) {
+    await page.hover(selector);
+    const result = await page.evaluate(async ([sel, labelSel, cv, ln]) => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${cv})`;
+      document.body.append(probe);
+      const want = getComputedStyle(probe).color;
+      probe.remove();
+      const end = performance.now() + 2000;
+      for (;;) {
+        const color = getComputedStyle(document.querySelector(sel)).color;
+        const label = labelSel && document.querySelector(labelSel);
+        const size = label ? getComputedStyle(label).backgroundSize : null;
+        if ((color === want && (!ln || size === ln)) || performance.now() > end) return { want, color, size };
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+    }, [selector, labelSelector, colorVar, line]);
+    await page.mouse.move(0, 0);
+    return result;
+  }
+  await page.evaluate(() => window.scrollTo({ top: 1080, behavior: "instant" }));
+  const logoHover = await hoverColor(".wordmark", ".wordmark .link-label", "--accent", "100% 1.04px");
+  flag("hovered logo: line width", "100% 1.04px", logoHover.size, logoHover.size === "100% 1.04px");
+  flag("hovered logo: colour = accent", logoHover.want, logoHover.color, logoHover.color === logoHover.want);
+  const emailHover = await hoverColor(".contact-email", null, "--text-secondary", null);
+  flag("hovered email: colour = text-secondary", emailHover.want, emailHover.color, emailHover.color === emailHover.want);
+  // A click on the email is cancelled (no mail app) and the line under it
+  // turns "Copied ✓".
+  // The copy is async, so the line is read frame by frame for up to 2s.
+  const emailClick = await page.evaluate(async () => {
+    const link = document.querySelector(".contact-email");
+    const line = document.querySelector(".copy-email");
+    const notCancelled = link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    const end = performance.now() + 2000;
+    while (line.textContent !== "Copied ✓" && performance.now() < end) {
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    return { notCancelled, label: line.textContent };
+  });
+  flag("email click: default prevented", "false", emailClick.notCancelled, emailClick.notCancelled === false);
+  flag("email click: line under it", "Copied ✓", emailClick.label, emailClick.label === "Copied ✓");
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   // Hovered, the Experience link's line stops short of its arrow (12px + 3px).
   // Wait for the (reduced-motion) transition to land, as for the stroke below.
   await page.hover(".timeline-text .text-link");

@@ -757,9 +757,10 @@ document.querySelectorAll(".case").forEach((caseEl) => {
 // Link hover (POR-24): every letter rolls up and its copy rolls in from below,
 // one after another from the left, while the underline draws in. Each letter
 // sits in a clip box one line tall; the copy is its text-shadow one line down.
-// Words keep their letters together; the email may break anywhere, as before.
-// The link's name stays its plain text for screen readers.
-document.querySelectorAll(".nav a, .text-link, .footer-links a, .contact-email").forEach((link) => {
+// Words keep their letters together. The logo rolls too; the big email does
+// not, it copies on click (below). The link's name stays its plain text for
+// screen readers.
+document.querySelectorAll(".wordmark, .nav a, .text-link, .footer-links a").forEach((link) => {
   if (!link.hasAttribute("aria-label")) link.setAttribute("aria-label", link.textContent.replace(/\s+/g, " ").trim());
   let label = link.querySelector(":scope > span");
   if (!label) {
@@ -799,10 +800,11 @@ document.querySelectorAll(".nav a, .text-link, .footer-links a, .contact-email")
 });
 
 const copyButton = document.querySelector(".copy-email");
+const emailLink = document.querySelector(".contact-email");
 const email = "max.shakurov@gmail.com";
 let copyTimer = 0;
 
-copyButton?.addEventListener("click", async () => {
+async function copyEmail() {
   try {
     await navigator.clipboard.writeText(email);
   } catch (error) {
@@ -821,4 +823,13 @@ copyButton?.addEventListener("click", async () => {
   copyTimer = window.setTimeout(() => {
     copyButton.textContent = "Click to copy";
   }, 1600);
+}
+
+copyButton?.addEventListener("click", copyEmail);
+
+// A click on the email copies it too, instead of opening the mail app; the
+// mailto: href stays for when the script does not run.
+emailLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  copyEmail();
 });

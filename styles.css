@@ -207,7 +207,9 @@ a {
   white-space: nowrap;
 }
 
-.wordmark[aria-current="true"] {
+.wordmark[aria-current="true"],
+.wordmark:hover,
+.wordmark:focus-visible {
   color: var(--accent);
 }
 
@@ -746,8 +748,11 @@ a {
   transition: color 0.2s ease;
 }
 
-.contact-email:hover {
-  color: var(--accent);
+/* The email copies on click (main.js): no rolling letters, it only dims a
+   little on hover, as Max Shakurov asked. */
+.contact-email:hover,
+.contact-email:focus-visible {
+  color: var(--text-secondary);
 }
 
 .footer-bottom {
@@ -786,9 +791,8 @@ a {
 
 /* Link hover (POR-24, main.js splits the text): no underline at rest; on
    hover the letters roll up one by one from the left, each into its copy
-   one line below, and the underline draws in from the left, 1px on small
-   text and thicker on the big email, as in the frames. The accent
-   colour is each link's own :hover rule. */
+   one line below, and the underline draws in from the left, 1px thick.
+   The logo has it too; the big email does not. The accent colour is each link's own :hover rule. */
 .link-label {
   background: linear-gradient(currentColor, currentColor) 0 100% / 0 max(1px, 0.04em) no-repeat;
   transition: background-size 0.5s cubic-bezier(0.65, 0, 0.35, 1);
@@ -811,14 +815,10 @@ a:focus-visible .link-label {
   white-space: nowrap;
 }
 
-.contact-email .roll-word {
-  white-space: normal;
-}
-
 .roll-char {
   display: inline-block;
-  /* Cut only above and below: the copy moves only up, and with negative
-     letter-spacing (the email) a glyph is wider than its box. */
+  /* Cut only above and below: the copy moves only up, and a glyph may be
+     wider than its box. */
   clip-path: inset(0 -0.5em);
 }
 
