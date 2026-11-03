@@ -165,9 +165,9 @@ a {
   align-items: center;
   gap: 2px;
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 400;
-  line-height: 22px;
+  line-height: 20px;
   text-decoration: none;
   white-space: nowrap;
   transition: color 0.2s ease;
@@ -190,6 +190,12 @@ a {
   width: 16px;
   height: 16px;
   flex: none;
+}
+
+/* The header arrows shrink with the 16px nav text; the footer keeps 16. */
+.nav .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .wordmark {
@@ -887,10 +893,11 @@ a:focus-visible .roll-char > span {
   opacity: 0.7;
 }
 
-/* Under 1300 the nav row runs into the centred logo (POR-12 measured it
+/* Under 1400 the nav row runs into the centred logo (POR-12 measured it
    overlapping up to 44px at 1081), so it folds into a menu button with a
-   dropdown at every narrower width, as Max Shakurov asked. */
-@media (width < 1300px) {
+   dropdown at every narrower width, as Max Shakurov asked. With Contact as
+   the fifth item (POR-26) the row clears the logo by 26 only from 1391. */
+@media (width < 1400px) {
   .menu-toggle {
     display: inline-flex;
     align-items: center;
@@ -1003,7 +1010,7 @@ a:focus-visible .roll-char > span {
   }
 }
 
-/* ≤720 keeps the one row of 721–1299 (button, centred logo, theme toggle),
+/* ≤720 keeps the one row of 721–1399 (button, centred logo, theme toggle),
    as Max Shakurov asked: the header must not break into two rows. The logo
    shrinks to fit and is centred on the screen. */
 @media (max-width: 720px) {

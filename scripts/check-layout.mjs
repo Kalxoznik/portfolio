@@ -215,7 +215,9 @@ try {
   num("logo MAXSHAKUROV top (text)", 54, v(m.logo, "textTop"));
   // 19.5: Max Shakurov's Photoshop overlay is at 2x and the Figma logo M there is 39 px.
   num("logo cap height (M ink)", 19.5, m.logoCapHeight, 0.5);
-  num("nav text top (text)", 58, v(m.nav, "textTop"));
+  // 59: the nav line went from 22 to 20 (16px text, POR-26) and the row is
+  // centred, so the text box starts 1px lower than Figma's 52 + 6.
+  num("nav text top (text)", 59, v(m.nav, "textTop"));
   num("nav left x (text)", 77, v(m.nav, "textLeft"));
   num("hero title top (text)", 364, v(m.heroTitle, "textTop"));
   num("hero subline top (text)", 633, v(m.heroLead, "textTop"));
@@ -525,14 +527,69 @@ try {
   flag("scrolled to first case (scrollY)", "1080", s.scrollY, s.scrollY === 1080);
   num("scrolled: header bottom (viewport)", 118, s.header ? s.header.top + s.header.height - s.scrollY : null);
   num("scrolled: logo top (text, viewport)", 54, vp(s.logo, "textTop"));
-  num("scrolled: nav text top (text, viewport)", 58, vp(s.nav, "textTop"));
+  num("scrolled: nav text top (text, viewport)", 59, vp(s.nav, "textTop"));
   const caseBg = await headerBgAt(1080);
   flag("header filled at first case (scrollY 1080)", SOLID, caseBg, caseBg === SOLID);
   const backBg = await headerBgAt(0);
   flag("header transparent again back at top", CLEAR, backBg, backBg === CLEAR);
 
-  // Under 1300 the nav folds into a MENU button, which must clear the centred
-  // logo by the 26px nav gap; from 1300 the full nav row clears it (POR-12).
+  // The 16px nav row stays centred on the logo and the theme toggle (POR-26),
+  // at the top of the page and scrolled alike.
+  async function rowCentres(y) {
+    return page.evaluate(async (y) => {
+      window.scrollTo({ top: y, behavior: "instant" });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const mid = (sel) => {
+        const r = document.querySelector(sel).getBoundingClientRect();
+        return (r.top + r.bottom) / 2;
+      };
+      const nav = mid('[data-check="nav-first"]');
+      return Math.max(Math.abs(nav - mid('[data-check="logo"]')), Math.abs(nav - mid(".theme-toggle")));
+    }, y);
+  }
+  for (const y of [0, 1080]) {
+    const off = await rowCentres(y);
+    flag(`nav row centre = logo and toggle centres (scrollY ${y})`, "±1", fmt(off), off <= 1);
+  }
+
+  // Contact scrolls to the footer, the last screen with the email: footer top
+  // at the top of the window, the email whole in it, the menu closed, and
+  // Contact (not About Me) current there (POR-26). Scrolling is read frame by
+  // frame until it stops, for up to 2s.
+  async function contactClick(width, viaMenu) {
+    if (viaMenu) await page.click('[data-check="menu-toggle"]');
+    await page.click('.nav a[data-nav="contact"]');
+    const r = await page.evaluate(async () => {
+      let last = -1;
+      const end = performance.now() + 2000;
+      while (window.scrollY !== last && performance.now() < end) {
+        last = window.scrollY;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }
+      const footer = document.querySelector('[data-check="footer"]').getBoundingClientRect();
+      const email = document.querySelector('[data-check="contact-email"]').getBoundingClientRect();
+      const W = document.documentElement.clientWidth;
+      const current = (key) => document.querySelector(`.nav a[data-nav="${key}"]`).getAttribute("aria-current") === "true";
+      return {
+        footerTop: footer.top,
+        emailInside: email.top >= 0 && email.bottom <= window.innerHeight && email.left >= 0 && email.right <= W,
+        email: [email.left, email.top, email.right, email.bottom].map(Math.round).join(", "),
+        menuOpen: document.querySelector('[data-check="header"]').classList.contains("is-menu-open"),
+        contact: current("contact"),
+        about: current("about"),
+      };
+    });
+    num(`Contact click: footer top (viewport) @${width}`, 0, r.footerTop, 1);
+    flag(`Contact click: email whole in the window @${width}`, "inside", r.email, r.emailInside);
+    flag(`Contact click: menu closed @${width}`, "closed", r.menuOpen ? "open" : "closed", !r.menuOpen);
+    flag(`Contact click: Contact current, About Me not @${width}`, "contact / -", `${r.contact ? "contact" : "-"} / ${r.about ? "about" : "-"}`, r.contact && !r.about);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  }
+  await contactClick(1920, false);
+
+  // Under 1400 the nav folds into a MENU button, which must clear the centred
+  // logo by the 26px nav gap; from 1400 the full nav row clears it (POR-12;
+  // 1400 since Contact made the row longer, POR-26).
   // Edges: the logo's text via a Range, the button's or nav's border box.
   // Scrolled to the work section, so "Recent Work" is bold, its widest state;
   // 300ms lets the nav's visibility transition finish after the resize.
@@ -577,7 +634,7 @@ try {
     });
   }
   const menuShown = (g) => g.menu && !g.navVisible;
-  for (const width of [1081, 1201, 1299, 1080, 721]) {
+  for (const width of [1081, 1201, 1299, 1399, 1080, 721]) {
     const g = await headerGap(width);
     flag(`menu button shown, nav hidden @${width}`, "yes", menuShown(g) ? "yes" : "no", menuShown(g));
     flag(`menu→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
@@ -632,7 +689,8 @@ try {
   flag("panel right edge ≤ 375", "≤ 375", fmt(phoneMenu.panelRight), phoneMenu.panelRight <= 375);
   flag("no horizontal scroll, menu open @375", "0", phoneMenu.overflow, phoneMenu.overflow <= 0);
   flag("menu closes on Escape @375", "false/hidden", phoneMenu.closed, phoneMenu.closed === "false/hidden");
-  await headerGap(1299);
+  await contactClick(375, true);
+  await headerGap(1399);
   const menuStates = await page.evaluate(async () => {
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const button = document.querySelector('[data-check="menu-toggle"]');
@@ -645,19 +703,21 @@ try {
     await new Promise((r) => setTimeout(r, 300));
     return { opened, closed: state() };
   });
-  flag("menu opens on click @1299", "true/visible", menuStates.opened, menuStates.opened === "true/visible");
-  flag("menu closes on Escape @1299", "false/hidden", menuStates.closed, menuStates.closed === "false/hidden");
-  const g1300 = await headerGap(1300);
-  flag("nav row shown, no menu button @1300", "yes", !g1300.menu && g1300.navVisible ? "yes" : "no", !g1300.menu && g1300.navVisible);
-  flag("nav→logo gap ≥ 26 @1300", "≥ 26", fmt(g1300.gap), g1300.gap >= 26);
+  flag("menu opens on click @1399", "true/visible", menuStates.opened, menuStates.opened === "true/visible");
+  flag("menu closes on Escape @1399", "false/hidden", menuStates.closed, menuStates.closed === "false/hidden");
+  for (const width of [1440, 1400]) {
+    const g = await headerGap(width);
+    flag(`nav row shown, no menu button @${width}`, "yes", !g.menu && g.navVisible ? "yes" : "no", !g.menu && g.navVisible);
+    flag(`nav→logo gap ≥ 26 @${width}`, "≥ 26", fmt(g.gap), g.gap >= 26);
+  }
   // Resizing into the range must hide the nav at once, with no fade-out:
-  // two frames after 1300 → 1299, no 300ms wait.
-  await page.setViewportSize({ width: 1299, height: 900 });
+  // two frames after 1400 → 1399, no 300ms wait.
+  await page.setViewportSize({ width: 1399, height: 900 });
   const resizedNav = await page.evaluate(async () => {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     return getComputedStyle(document.querySelector('[data-check="nav"]')).visibility;
   });
-  flag("nav hidden at once on resize 1300→1299", "hidden", resizedNav, resizedNav === "hidden");
+  flag("nav hidden at once on resize 1400→1399", "hidden", resizedNav, resizedNav === "hidden");
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -707,7 +767,7 @@ try {
   flag("reduced motion: current dot shadow 6px at 32%", "… 0px 0px 0px 6px, accent / 0.32", reduced.shadow, stillShadow);
   flag("reduced motion: no halo ::after", "none", reduced.ringContent, reduced.ringContent === "none" && !reduced.hasAnim);
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1299, 1300, 1920]) {
+  for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1399, 1400, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const h = await halo();
