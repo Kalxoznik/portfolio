@@ -114,7 +114,9 @@ const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // First screen: the dots run from the cursor and spring back once it leaves
 // (POR-17). A canvas under the hero redraws the body's 32px grid in place, so
 // the dots line up with the rest of the page. Mouse only, motion on only;
-// otherwise the body's own dots stay as they are.
+// otherwise the body's own dots stay as they are. The canvas runs RADIUS past
+// the hero's bottom edge and the reach shrinks below it, so a pushed dot never
+// leaves the canvas and the ring is not cut off at the seam.
 const hero = document.querySelector(".hero");
 
 if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
@@ -126,7 +128,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
 
   const GRID = 32;
   const DOT = 1;
-  const RADIUS = 140;
+  const RADIUS = 100;
   const dots = [];
   let width = 0;
   let height = 0;
@@ -134,13 +136,15 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
   let frame = 0;
   let lastTime = 0;
   let themeUntil = 0;
+  let displaced = false;
 
   function build() {
     const ratio = window.devicePixelRatio || 1;
     width = hero.offsetWidth;
     height = hero.offsetHeight;
+    canvas.style.height = `${height + RADIUS}px`;
     canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
+    canvas.height = Math.round((height + RADIUS) * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     dots.length = 0;
     const rect = hero.getBoundingClientRect();
@@ -148,7 +152,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     const top = rect.top + window.scrollY;
     const startX = (((GRID / 2 - left) % GRID) + GRID) % GRID;
     const startY = (((GRID / 2 - top) % GRID) + GRID) % GRID;
-    for (let y = startY; y < height + GRID; y += GRID) {
+    for (let y = startY; y < height + RADIUS + GRID; y += GRID) {
       for (let x = startX; x < width + GRID; x += GRID) {
         dots.push({ x, y, ox: 0, oy: 0 });
       }
@@ -159,7 +163,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     const styles = getComputedStyle(root);
     const color = styles.getPropertyValue("--dots").trim();
     const lit = styles.getPropertyValue("--text-muted").trim();
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, height + RADIUS);
     ctx.fillStyle = color;
     ctx.beginPath();
     dots.forEach((dot) => {
@@ -196,19 +200,22 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     const rect = hero.getBoundingClientRect();
     const px = pointer ? pointer.x - rect.left : 0;
     const py = pointer ? pointer.y - rect.top : 0;
+    // Below the hero the circle shrinks, so pushed dots stay on the canvas.
+    const reach = pointer ? Math.min(RADIUS, height + RADIUS - py) : 0;
     let moving = false;
+    displaced = false;
 
     dots.forEach((dot) => {
       let tx = 0;
       let ty = 0;
-      if (pointer) {
+      if (reach > 0) {
         const dx = dot.x - px;
         const dy = dot.y - py;
         const d = Math.hypot(dx, dy);
-        if (d < RADIUS) {
+        if (d < reach) {
           // Closest dots travel furthest, out to about the edge of the circle.
-          const t = 1 - d / RADIUS;
-          const push = RADIUS * t * t * 0.9;
+          const t = 1 - d / reach;
+          const push = reach * t * t * 0.9;
           const nx = d ? dx / d : 1;
           const ny = d ? dy / d : 0;
           tx = nx * push;
@@ -223,6 +230,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
       } else {
         moving = true;
       }
+      if (dot.ox || dot.oy) displaced = true;
     });
 
     draw();
@@ -234,10 +242,16 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
     if (!frame) frame = requestAnimationFrame(step);
   }
 
+  // A cursor below the canvas over resting dots needs no frame.
+  function wakeNear() {
+    if (!displaced && pointer.y - hero.getBoundingClientRect().top >= height + RADIUS) return;
+    wake();
+  }
+
   window.addEventListener("pointermove", (event) => {
     if (event.pointerType !== "mouse") return;
     pointer = { x: event.clientX, y: event.clientY };
-    wake();
+    wakeNear();
   }, { passive: true });
 
   document.documentElement.addEventListener("mouseleave", () => {
@@ -246,7 +260,7 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
   });
 
   window.addEventListener("scroll", () => {
-    if (pointer) wake();
+    if (pointer) wakeNear();
   }, { passive: true });
 
   // The dot colour fades with the theme switch: redraw for its 0.35s.
