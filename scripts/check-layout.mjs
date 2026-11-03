@@ -297,6 +297,42 @@ try {
       flag(`"${a.name}" "${a.after}" after the link on the arrow's line, widths ${a.full}→240`, "0 failing", shownAfter, a.badAfter.length === 0);
     }
   }
+  // Link hover (POR-24): at rest no link shows an underline, neither the
+  // drawn-in line (label background width 0) nor text-decoration, and the
+  // logo is left whole, not split into rolling letters.
+  const linkRest = await page.evaluate(() => {
+    const links = [...document.querySelectorAll("a:not(.skip-link)")];
+    const underlined = links.filter((a) => {
+      const label = a.querySelector(".link-label");
+      const width = label ? getComputedStyle(label).backgroundSize.split(" ")[0] : "0px";
+      const decorated = [a, ...a.querySelectorAll("*")].some((el) => getComputedStyle(el).textDecorationLine !== "none");
+      return !/^0(px|%)?$/.test(width) || decorated;
+    });
+    const logo = document.querySelector('[data-check="logo"]');
+    return {
+      underlined: underlined.map((a) => a.textContent.trim()),
+      logoSplit: logo.querySelectorAll(".roll-char, .link-label").length,
+    };
+  });
+  flag("links at rest: underlined", "0", linkRest.underlined.length ? linkRest.underlined.join(", ") : "0", linkRest.underlined.length === 0);
+  flag("logo: rolling letters", "0", linkRest.logoSplit, linkRest.logoSplit === 0);
+  // Hovered, the Experience link's line stops short of its arrow (12px + 3px).
+  // Wait for the (reduced-motion) transition to land, as for the stroke below.
+  await page.hover(".timeline-text .text-link");
+  await page
+    .waitForFunction(
+      () => getComputedStyle(document.querySelector(".timeline-text .link-label")).backgroundSize.startsWith("calc"),
+      null,
+      { polling: "raf", timeout: 2000 }
+    )
+    .catch((e) => {
+      if (e.name !== "TimeoutError") throw e;
+    });
+  const hoverLine = await page.evaluate(() =>
+    getComputedStyle(document.querySelector(".timeline-text .link-label")).backgroundSize
+  );
+  flag("hovered experience link: line width", "calc(100% - 15px) …", hoverLine, hoverLine.startsWith("calc(100% - 15px) "));
+  await page.mouse.move(0, 0);
   // Hovered, the arrow takes the accent colour with the text. :hover is on
   // as soon as page.hover returns, but the (reduced-motion, 0.01ms) colour
   // transition still takes about 3 frames, 33ms idle and up to 46ms with four

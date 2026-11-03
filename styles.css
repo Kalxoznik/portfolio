@@ -799,6 +799,14 @@ a:focus-visible .link-label {
   background-size: 100% max(1px, 0.04em);
 }
 
+/* The Experience arrow sits inside the label: the line stops at the text,
+   short of the 12px arrow and its 3px gap. With box-decoration-break: slice
+   100% spans all lines together, so it holds when the link wraps. */
+.text-link:hover .link-label,
+.text-link:focus-visible .link-label {
+  background-size: calc(100% - 15px) max(1px, 0.04em);
+}
+
 .roll-word {
   white-space: nowrap;
 }
@@ -809,7 +817,9 @@ a:focus-visible .link-label {
 
 .roll-char {
   display: inline-block;
-  clip-path: inset(0);
+  /* Cut only above and below: the copy moves only up, and with negative
+     letter-spacing (the email) a glyph is wider than its box. */
+  clip-path: inset(0 -0.5em);
 }
 
 .roll-char > span {
