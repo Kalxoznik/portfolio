@@ -639,7 +639,8 @@ a {
 
 /* With motion on, the still halo gives way to rings that come out from under
    the dot, grow to 36px and fade out (POR-25). Only transform and opacity move;
-   the ring starts at the dot's 12px, so each restart is hidden by the dot. */
+   the ring starts at the dot's 12px, so each restart is hidden by the dot. The
+   growth eases out, the fade is linear, so the ring stays visible most of the cycle. */
 @media (prefers-reduced-motion: no-preference) {
   .timeline-item.is-current .timeline-mark::before {
     box-shadow: none;
@@ -656,18 +657,28 @@ a {
     border-radius: 50%;
     background: color-mix(in srgb, var(--accent) 32%, transparent);
     transform: scale(0.3333);
-    animation: timeline-halo 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    animation:
+      timeline-halo-grow 1.5s cubic-bezier(0, 0, 0.2, 1) infinite,
+      timeline-halo-fade 1.5s linear infinite;
   }
 }
 
-@keyframes timeline-halo {
+@keyframes timeline-halo-grow {
   from {
     transform: scale(0.3333);
-    opacity: 1;
   }
 
   to {
     transform: scale(1);
+  }
+}
+
+@keyframes timeline-halo-fade {
+  from {
+    opacity: 1;
+  }
+
+  to {
     opacity: 0;
   }
 }

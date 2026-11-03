@@ -726,40 +726,47 @@ try {
   await timelineChecks(375);
 
   // Current item's halo (POR-25). Reduced motion: the still 6px shadow at 32%,
-  // no ::after. Motion on: ::after grows from the 12px dot to 36px and fades,
-  // forever; the shadow is gone. Frames are read by pausing the animation and
-  // seeking it, so the numbers do not depend on when the read lands.
+  // no ::after. Motion on: ::after grows from the 12px dot to 36px (ease-out)
+  // and fades (linear), forever; the shadow is gone. Frames are read by pausing
+  // both animations and seeking them, so the numbers do not depend on when the
+  // read lands.
   const halo = () =>
     page.evaluate(async () => {
       const mark = document.querySelector(".timeline-item.is-current .timeline-mark");
       const dot = getComputedStyle(mark, "::before");
       const ring = getComputedStyle(mark, "::after");
-      const anim = document
+      const anims = document
         .getAnimations()
-        .find((a) => a.effect?.target === mark && a.effect?.pseudoElement === "::after");
+        .filter((a) => a.effect?.target === mark && a.effect?.pseudoElement === "::after");
+      const anim = anims[0];
       const frame = (t) => {
-        anim.pause();
-        anim.currentTime = t;
+        for (const a of anims) {
+          a.pause();
+          a.currentTime = t;
+        }
         const mr = mark.getBoundingClientRect();
         const scale = new DOMMatrix(ring.transform).a;
         const size = parseFloat(ring.width) * scale;
         const centre = mr.left + parseFloat(ring.left) + parseFloat(ring.width) / 2;
         return { size, opacity: parseFloat(ring.opacity), left: centre - size / 2, right: centre + size / 2 };
       };
-      const timing = anim?.effect.getComputedTiming();
+      const timings = anims.map((a) => a.effect.getComputedTiming());
+      const timing = timings[0];
       const out = {
         shadow: dot.boxShadow,
         ringContent: ring.content,
         hasAnim: !!anim,
-        iterations: timing?.iterations,
-        duration: timing?.duration,
+        count: anims.length,
+        iterations: timings.map((t) => t.iterations),
+        durations: timings.map((t) => t.duration),
         easing: ring.animationTimingFunction,
         start: anim ? frame(0) : null,
+        mid: anim ? frame(750) : null,
         end: anim ? frame(timing.duration - 0.1) : null,
         clientWidth: document.documentElement.clientWidth,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
-      anim?.play();
+      for (const a of anims) a.play();
       return out;
     });
   const reduced = await halo();
@@ -772,10 +779,13 @@ try {
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const h = await halo();
     if (width === 1920) {
-      flag("motion on: halo ::after animates forever", "Infinity", String(h.iterations), h.iterations === Infinity);
-      flag("motion on: halo runs 1.5s, ease-out", "1500 / cubic-bezier(0, 0, 0.2, 1)", `${fmt(h.duration)} / ${h.easing}`, h.duration === 1500 && h.easing === "cubic-bezier(0, 0, 0.2, 1)");
+      flag("motion on: halo ::after has grow + fade animations, both forever", "2 × Infinity", `${h.count} × ${h.iterations.join(", ")}`, h.count === 2 && h.iterations.every((i) => i === Infinity));
+      flag("motion on: halo both run 1.5s", "1500, 1500", h.durations.map(fmt).join(", "), h.count === 2 && h.durations.every((d) => d === 1500));
+      flag("motion on: halo grows ease-out, fades linear", "cubic-bezier(0, 0, 0.2, 1), linear", h.easing, h.easing === "cubic-bezier(0, 0, 0.2, 1), linear");
       flag("motion on: dot has no shadow", "none", h.shadow, h.shadow === "none");
       flag("motion on: halo first frame ≤ 12px", "≤ 12", fmt(h.start?.size), h.start != null && h.start.size <= 12.01);
+      num("motion on: halo size at 750ms", 32, h.mid?.size, 1);
+      num("motion on: halo opacity at 750ms", 0.5, h.mid?.opacity, 0.02);
       num("motion on: halo last frame size", 36, h.end?.size, 0.5);
       num("motion on: halo last frame opacity", 0, h.end?.opacity, 0.01);
     }
