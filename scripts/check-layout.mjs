@@ -190,14 +190,14 @@ try {
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
 
   // The header is transparent until the hero title's top reaches its bottom,
-  // then fills with the plain background, no dots (POR-13). 400ms lets the
-  // 0.35s fade finish: it runs in the check's reduced-motion mode too.
+  // then fills with the plain background, no dots, at once (POR-13). Read two
+  // frames after the scroll: a fade would still be on its way there.
   const CLEAR = "rgba(0, 0, 0, 0) / none";
   const SOLID = "rgb(22, 21, 20) / none";
   async function headerBgAt(y) {
     return page.evaluate(async (y) => {
       window.scrollTo({ top: y, behavior: "instant" });
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const cs = getComputedStyle(document.querySelector('[data-check="header"]'));
       return `${cs.backgroundColor} / ${cs.backgroundImage}`;
     }, y);
@@ -212,6 +212,15 @@ try {
     flag(`header transparent 4px before fill (scrollY ${solidAt - 4})`, CLEAR, beforeBg, beforeBg === CLEAR);
     const afterBg = await headerBgAt(solidAt + 4);
     flag(`header filled 4px after fill (scrollY ${solidAt + 4})`, SOLID, afterBg, afterBg === SOLID);
+    // The check runs reduced-motion, which cuts every transition anyway, so
+    // prove there is no fade with motion on: no in-between colour either way.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await headerBgAt(0);
+    const instantOn = await headerBgAt(solidAt + 4);
+    flag("motion on: header filled on the next frame", SOLID, instantOn, instantOn === SOLID);
+    const instantOff = await headerBgAt(0);
+    flag("motion on: header clear on the next frame", CLEAR, instantOff, instantOff === CLEAR);
+    await page.emulateMedia({ reducedMotion: "reduce" });
   }
 
   // Scrolled to the first case: the sticky header has not moved, the row is

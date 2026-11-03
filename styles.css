@@ -128,7 +128,8 @@ a {
   padding: calc(8px + var(--header-top-space) * 2) 73px 0 var(--gutter);
   /* Transparent over the page's own dots until the hero title reaches the
      header's bottom edge; then main.js fills it with the plain background,
-     no dots (POR-13). */
+     no dots, at once (POR-13). The transition only follows a theme switch
+     while filled; main.js suspends it when the fill turns on or off. */
   background-color: transparent;
   transition: background-color 0.35s ease;
 }

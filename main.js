@@ -92,11 +92,17 @@ setActiveNav();
 
 const heroTitle = document.getElementById("hero-title");
 
-// The header stays transparent until the hero title's top reaches its bottom.
+// The header stays transparent until the hero title's top reaches its bottom,
+// then fills at once. Its background-color transition is kept for the theme
+// switch only, so it is suspended while the class flips.
 function syncHeaderSolid() {
   if (!header || !heroTitle) return;
   const solid = heroTitle.getBoundingClientRect().top <= header.getBoundingClientRect().bottom;
+  if (solid === header.classList.contains("is-solid")) return;
+  header.style.transition = "none";
   header.classList.toggle("is-solid", solid);
+  getComputedStyle(header).backgroundColor;
+  header.style.transition = "";
 }
 
 window.addEventListener("scroll", syncHeaderSolid, { passive: true });
