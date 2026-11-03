@@ -303,10 +303,14 @@ a {
   display: block;
 }
 
-/* main.js draws the title on a WebGL canvas and swirls it under the cursor
-   (POR-20). Once the canvas shows the text, the DOM text goes see-through but
-   stays for screen readers and selection; the h1 keeps its own colour, which
-   main.js reads for the canvas. main.js sets the canvas box. */
+/* main.js swirls the title and the lead under the cursor on a WebGL canvas
+   (POR-20). The canvas draws only inside the lens circle; there the mask cuts
+   the same circle out of the DOM text, with a 1px edge that fades against the
+   canvas's. At rest the hole has a negative radius and the DOM text shows
+   whole. The mask is on everywhere, with or without the lens: a masked text
+   blends a shade apart from an unmasked one, so this way nothing changes
+   when the lens starts, stops or is lost. main.js sets the canvas box and
+   the --lens-* values. */
 .hero-lens {
   position: absolute;
   z-index: 1;
@@ -314,8 +318,13 @@ a {
   pointer-events: none;
 }
 
-.hero h1.is-lensed span {
-  color: transparent;
+.hero h1,
+.hero-lead {
+  --lens-x: 0px;
+  --lens-y: 0px;
+  --lens-r: -1px;
+  -webkit-mask-image: radial-gradient(circle at var(--lens-x) var(--lens-y), transparent calc(var(--lens-r) - 0.5px), #000 calc(var(--lens-r) + 0.5px));
+  mask-image: radial-gradient(circle at var(--lens-x) var(--lens-y), transparent calc(var(--lens-r) - 0.5px), #000 calc(var(--lens-r) + 0.5px));
 }
 
 .hero-lead {
