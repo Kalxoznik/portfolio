@@ -598,7 +598,6 @@ a {
 }
 
 .timeline-item.is-current::before {
-  top: 20px;
   background: linear-gradient(to bottom, var(--accent), var(--text-muted));
 }
 
@@ -630,6 +629,41 @@ a {
   border: 0;
   background: var(--accent);
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* With motion on, the still halo gives way to rings that come out from under
+   the dot, grow to 48px and fade out (POR-25). Only transform and opacity move;
+   the ring starts at the dot's 12px, so each restart is hidden by the dot. */
+@media (prefers-reduced-motion: no-preference) {
+  .timeline-item.is-current .timeline-mark::before {
+    box-shadow: none;
+  }
+
+  .timeline-item.is-current .timeline-mark::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -12px;
+    left: -12px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+    transform: scale(0.25);
+    animation: timeline-halo 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes timeline-halo {
+  from {
+    transform: scale(0.25);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
 }
 
 .timeline-body {
