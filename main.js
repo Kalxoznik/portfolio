@@ -285,6 +285,257 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
   window.addEventListener("resize", rebuild);
 }
 
+// First screen: the title swirls under the cursor as if seen through warped
+// glass (POR-20). A WebGL canvas over the h1 shows the title, drawn letter by
+// letter where the DOM puts each letter, and turns each sample point around
+// the lens centre. At rest it matches the DOM text, which then goes
+// see-through but stays for screen readers and selection. Same conditions as
+// the dots, plus WebGL; otherwise the title stays as it is.
+const lensCanvas = document.createElement("canvas");
+const gl = hero && heroTitle && motionOk
+  && window.matchMedia("(hover: hover) and (pointer: fine)").matches
+  ? lensCanvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false })
+  : null;
+
+if (gl) {
+  const RADIUS = 2; // × the title's font size
+  const TWIST = Math.PI;
+  const RISE = 0.3; // s, strength 0 → 1
+  const FALL = 0.5; // s, strength 1 → 0
+
+  lensCanvas.className = "hero-lens";
+  lensCanvas.setAttribute("aria-hidden", "true");
+  hero.append(lensCanvas);
+  const text = document.createElement("canvas");
+  const tctx = text.getContext("2d");
+
+  const program = gl.createProgram();
+  [
+    [gl.VERTEX_SHADER, `
+      attribute vec2 a_pos;
+      void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`],
+    [gl.FRAGMENT_SHADER, `
+      #ifdef GL_FRAGMENT_PRECISION_HIGH
+      precision highp float;
+      #else
+      precision mediump float;
+      #endif
+      uniform sampler2D u_text;
+      uniform vec2 u_pixels;
+      uniform vec2 u_size;
+      uniform vec2 u_center;
+      uniform float u_radius;
+      uniform float u_angle;
+      uniform vec4 u_color;
+      void main() {
+        // CSS px from the canvas's top left; at rest this hits texel centres.
+        vec2 uv = vec2(gl_FragCoord.x / u_pixels.x, 1.0 - gl_FragCoord.y / u_pixels.y);
+        vec2 o = uv * u_size - u_center;
+        float d = length(o);
+        if (u_angle != 0.0 && d < u_radius) {
+          float t = 1.0 - d / u_radius;
+          float a = u_angle * t * t;
+          o = vec2(cos(a) * o.x - sin(a) * o.y, sin(a) * o.x + cos(a) * o.y);
+          uv = (u_center + o) / u_size;
+        }
+        float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+        float alpha = texture2D(u_text, uv).a * inside;
+        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a) * alpha;
+      }`],
+  ].forEach(([type, source]) => {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    gl.attachShader(program, shader);
+  });
+  gl.linkProgram(program);
+  gl.useProgram(program);
+  const u = {};
+  ["u_text", "u_pixels", "u_size", "u_center", "u_radius", "u_angle", "u_color"].forEach((name) => {
+    u[name] = gl.getUniformLocation(program, name);
+  });
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(program, "a_pos");
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.uniform1i(u.u_text, 0);
+
+  let fontReady = false;
+  let ready = false;
+  let radius = 0;
+  let width = 0;
+  let height = 0;
+  let pointer = null;
+  let center = null;
+  let strength = 0;
+  let frame = 0;
+  let lastTime = 0;
+  let themeUntil = 0;
+
+  function fontSpec(styles) {
+    return `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+  }
+
+  // The canvas covers the title plus the lens radius on every side, cut to the
+  // hero's width so it never adds a horizontal scroll.
+  function build() {
+    if (!fontReady) return;
+    const styles = getComputedStyle(heroTitle);
+    tctx.font = fontSpec(styles);
+    const ascent = tctx.measureText("M").fontBoundingBoxAscent;
+    if (ascent == null) return;
+    const ratio = window.devicePixelRatio || 1;
+    const heroRect = hero.getBoundingClientRect();
+    const box = heroTitle.getBoundingClientRect();
+    radius = RADIUS * parseFloat(styles.fontSize);
+    const left = Math.max(0, Math.floor(box.left - heroRect.left - radius));
+    const right = Math.min(hero.clientWidth, Math.ceil(box.right - heroRect.left + radius));
+    const top = Math.floor(box.top - heroRect.top - radius);
+    width = right - left;
+    height = Math.ceil(box.bottom - heroRect.top + radius) - top;
+    lensCanvas.style.left = `${left}px`;
+    lensCanvas.style.top = `${top}px`;
+    lensCanvas.style.width = `${width}px`;
+    lensCanvas.style.height = `${height}px`;
+    lensCanvas.width = text.width = Math.round(width * ratio);
+    lensCanvas.height = text.height = Math.round(height * ratio);
+
+    // Each letter goes where the DOM puts it, so letter-spacing, kerning and
+    // line breaks match the DOM text.
+    const origin = lensCanvas.getBoundingClientRect();
+    tctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    tctx.clearRect(0, 0, width, height);
+    tctx.font = fontSpec(styles);
+    tctx.fillStyle = "#fff";
+    const range = document.createRange();
+    const walker = document.createTreeWalker(heroTitle, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const value = node.nodeValue;
+      for (let i = 0; i < value.length; i++) {
+        const size = value.codePointAt(i) > 0xffff ? 2 : 1;
+        const char = value.slice(i, i + size);
+        if (!/\s/.test(char)) {
+          range.setStart(node, i);
+          range.setEnd(node, i + size);
+          const rect = range.getClientRects()[0];
+          if (rect) tctx.fillText(char, rect.left - origin.left, rect.top - origin.top + ascent);
+        }
+        i += size - 1;
+      }
+    }
+    gl.viewport(0, 0, lensCanvas.width, lensCanvas.height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, text);
+    ready = true;
+  }
+
+  function color() {
+    const value = getComputedStyle(heroTitle).color;
+    const parts = (value.match(/[\d.]+/g) || []).map(Number);
+    const scale = value.startsWith("color(") ? 1 : 255;
+    return [parts[0] / scale, parts[1] / scale, parts[2] / scale, parts.length > 3 ? parts[3] : 1];
+  }
+
+  function render() {
+    if (!ready) return;
+    const origin = lensCanvas.getBoundingClientRect();
+    const eased = strength * strength * (3 - 2 * strength);
+    gl.uniform2f(u.u_pixels, lensCanvas.width, lensCanvas.height);
+    gl.uniform2f(u.u_size, width, height);
+    gl.uniform2f(u.u_center, center ? center.x - origin.left : 0, center ? center.y - origin.top : 0);
+    gl.uniform1f(u.u_radius, radius);
+    gl.uniform1f(u.u_angle, center ? TWIST * eased : 0);
+    gl.uniform4fv(u.u_color, color());
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    heroTitle.classList.add("is-lensed");
+  }
+
+  // The lens wakes once the cursor is within the radius of the title's box.
+  function near() {
+    if (!pointer) return false;
+    const box = heroTitle.getBoundingClientRect();
+    const dx = Math.max(box.left - pointer.x, 0, pointer.x - box.right);
+    const dy = Math.max(box.top - pointer.y, 0, pointer.y - box.bottom);
+    return Math.hypot(dx, dy) < radius;
+  }
+
+  function step(time) {
+    frame = 0;
+    const dt = Math.min(0.05, lastTime ? (time - lastTime) / 1000 : 1 / 60);
+    lastTime = time;
+    const target = near() ? 1 : 0;
+    if (!strength && pointer) center = { ...pointer };
+    strength = target > strength
+      ? Math.min(1, strength + dt / RISE)
+      : Math.max(0, strength - dt / FALL);
+    let moving = false;
+    if (pointer && center) {
+      const ease = 1 - Math.pow(0.7, dt * 60);
+      center.x += (pointer.x - center.x) * ease;
+      center.y += (pointer.y - center.y) * ease;
+      if (Math.abs(pointer.x - center.x) < 0.1 && Math.abs(pointer.y - center.y) < 0.1) {
+        center = { ...pointer };
+      } else {
+        moving = strength > 0;
+      }
+    }
+    render();
+    if (strength !== target || moving || time < themeUntil) frame = requestAnimationFrame(step);
+    else lastTime = 0;
+  }
+
+  function wake() {
+    if (ready && !frame) frame = requestAnimationFrame(step);
+  }
+
+  window.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "mouse") return;
+    pointer = { x: event.clientX, y: event.clientY };
+    if (strength || near()) wake();
+  }, { passive: true });
+
+  document.documentElement.addEventListener("mouseleave", () => {
+    pointer = null;
+    wake();
+  });
+
+  // The title slides under a still cursor.
+  window.addEventListener("scroll", () => {
+    if (pointer && (strength || near())) wake();
+  }, { passive: true });
+
+  // The h1 takes the new colour at once: redraw now, then for 0.4s as the dots.
+  new MutationObserver(() => {
+    themeUntil = performance.now() + 400;
+    render();
+    wake();
+  }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // Unbounded comes with display=swap: nothing is drawn before it is in, so the
+  // canvas never shows the fallback font. fonts.check() is no gate here: it
+  // says true while the face is still loading.
+  function rebuild() {
+    build();
+    render();
+  }
+
+  document.fonts.load(fontSpec(getComputedStyle(heroTitle)), heroTitle.textContent).then((faces) => {
+    fontReady = faces.length > 0 && faces.every((face) => face.status === "loaded");
+    rebuild();
+  }, () => {});
+  document.fonts.addEventListener("loadingdone", rebuild);
+  new ResizeObserver(rebuild).observe(heroTitle);
+  window.addEventListener("resize", rebuild);
+}
+
 document.querySelectorAll(".case").forEach((caseEl) => {
   const scroller = caseEl.querySelector(".carousel");
   const slides = [...caseEl.querySelectorAll(".slide")];

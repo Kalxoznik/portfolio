@@ -303,6 +303,21 @@ a {
   display: block;
 }
 
+/* main.js draws the title on a WebGL canvas and swirls it under the cursor
+   (POR-20). Once the canvas shows the text, the DOM text goes see-through but
+   stays for screen readers and selection; the h1 keeps its own colour, which
+   main.js reads for the canvas. main.js sets the canvas box. */
+.hero-lens {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+
+.hero h1.is-lensed span {
+  color: transparent;
+}
+
 .hero-lead {
   max-width: 1330px;
   margin: 19px 0 0;
