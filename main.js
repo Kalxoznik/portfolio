@@ -330,14 +330,22 @@ if (gl) {
       uniform float u_angle;
       uniform vec4 u_title;
       uniform vec4 u_lead;
+      // Over DOM text the mask has dimmed to x·m, alpha x(1 − m)/(1 − x·m)
+      // lands back on x, so the 1px edge leaves no seam.
+      vec4 lensed(vec4 color, float cover, float m) {
+        if (color.a == 0.0) return vec4(0.0);
+        float x = cover * color.a;
+        float a = x * (1.0 - m) / (1.0 - x * m);
+        return vec4(color.rgb / color.a * a, a);
+      }
       void main() {
         // CSS px from the canvas's top left; with no turn this hits texel centres.
         vec2 uv = vec2(gl_FragCoord.x / u_pixels.x, 1.0 - gl_FragCoord.y / u_pixels.y);
         vec2 o = uv * u_size - u_center;
         float d = length(o);
-        // Only the circle; its 1px edge fades against the mask's edge.
-        float edge = clamp(u_radius - d + 0.5, 0.0, 1.0);
-        if (edge == 0.0) {
+        // Only the circle; m is the mask's ramp across its 1px edge.
+        float m = clamp(d - u_radius + 0.5, 0.0, 1.0);
+        if (m == 1.0) {
           gl_FragColor = vec4(0.0);
           return;
         }
@@ -347,8 +355,8 @@ if (gl) {
         uv = (u_center + o) / u_size;
         float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
         // Red holds the title's coverage, green the lead's.
-        vec4 texel = texture2D(u_text, uv) * inside * edge;
-        gl_FragColor = u_title * texel.r + u_lead * texel.g;
+        vec4 texel = texture2D(u_text, uv) * inside;
+        gl_FragColor = lensed(u_title, texel.r, m) + lensed(u_lead, texel.g, m);
       }`],
   ].forEach(([type, source]) => {
     const shader = gl.createShader(type);
@@ -462,12 +470,14 @@ if (gl) {
     return [parts[0] / scale * alpha, parts[1] / scale * alpha, parts[2] / scale * alpha, alpha];
   }
 
-  // The hole in each text's mask, in the element's own coordinates.
+  // The hole in each text's mask, in the element's own coordinates. The mask
+  // is painted from the box snapped to device pixels.
   function setHole(x, y, r) {
+    const ratio = window.devicePixelRatio || 1;
     texts.forEach((element) => {
       const box = element.getBoundingClientRect();
-      element.style.setProperty("--lens-x", `${x - box.left}px`);
-      element.style.setProperty("--lens-y", `${y - box.top}px`);
+      element.style.setProperty("--lens-x", `${x - Math.round(box.left * ratio) / ratio}px`);
+      element.style.setProperty("--lens-y", `${y - Math.round(box.top * ratio) / ratio}px`);
       element.style.setProperty("--lens-r", `${r}px`);
     });
   }
