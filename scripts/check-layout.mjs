@@ -297,10 +297,30 @@ try {
       flag(`"${a.name}" "${a.after}" after the link on the arrow's line, widths ${a.full}→240`, "0 failing", shownAfter, a.badAfter.length === 0);
     }
   }
-  // Hovered, the arrow takes the accent colour with the text. Read after
-  // 50ms, once the (reduced-motion, 0.01ms) colour transition is over.
+  // Hovered, the arrow takes the accent colour with the text. :hover is on
+  // as soon as page.hover returns, but the (reduced-motion, 0.01ms) colour
+  // transition still takes about 3 frames, 33ms idle and up to 46ms with four
+  // checks at once (POR-23), so a fixed 50ms wait failed now and then. Wait
+  // for the colour itself, frame by frame, for up to 2s; on timeout the row
+  // fails and shows the stroke it found.
   await page.hover(".timeline-text .text-link");
-  await page.waitForTimeout(50);
+  await page
+    .waitForFunction(
+      () => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--accent)";
+        document.body.append(probe);
+        const accent = getComputedStyle(probe).color;
+        probe.remove();
+        const path = document.querySelector(".timeline-text .text-link-arrow path");
+        return getComputedStyle(path).stroke === accent;
+      },
+      null,
+      { polling: "raf", timeout: 2000 }
+    )
+    .catch((e) => {
+      if (e.name !== "TimeoutError") throw e;
+    });
   const hoverStroke = await page.evaluate(() => {
     const probe = document.createElement("span");
     probe.style.color = "var(--accent)";
