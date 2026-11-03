@@ -31,7 +31,7 @@ toggle?.addEventListener("click", () => {
 
 function setActiveNav() {
   if (!navLinks.length) return;
-  const offset = (header ? header.offsetHeight : 0) + 24;
+  const offset = (header ? header.getBoundingClientRect().bottom : 0) + 24;
   const marker = window.scrollY + offset;
   let current = null;
 

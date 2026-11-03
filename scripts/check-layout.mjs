@@ -166,11 +166,13 @@ try {
   flag("scrolled to top (scrollY)", "0", m.scrollY, m.scrollY === 0);
   flag("body background", "rgb(22, 21, 20)", m.bodyBg, m.bodyBg === "rgb(22, 21, 20)");
 
-  num("header height", 118, v(m.header, "height"));
-  num("logo MAXSHAKUROV top (text)", 48, v(m.logo, "textTop"));
+  // +15: at the top of the page the header row sits 15px below Figma, as
+  // Max Shakurov asked (POR-9). Figma: header 118, logo 48, nav 52.
+  num("header height", 133, v(m.header, "height"));
+  num("logo MAXSHAKUROV top (text)", 63, v(m.logo, "textTop"));
   // 19.5: Max Shakurov's Photoshop overlay is at 2x and the Figma logo M there is 39 px.
   num("logo cap height (M ink)", 19.5, m.logoCapHeight, 0.5);
-  num("nav text top (text)", 52, v(m.nav, "textTop"));
+  num("nav text top (text)", 67, v(m.nav, "textTop"));
   num("nav left x (text)", 77, v(m.nav, "textLeft"));
   num("hero title top (text)", 364, v(m.heroTitle, "textTop"));
   num("hero subline top (text)", 633, v(m.heroLead, "textTop"));
@@ -186,6 +188,19 @@ try {
 
   const over1920 = await page.evaluate(overflowX);
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
+
+  // Scrolled to the first case: the sticky header is back to the Figma numbers.
+  // Viewport coordinates (page position minus scrollY).
+  await page.evaluate(async () => {
+    window.scrollTo(0, 1080);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  const s = await page.evaluate(measure);
+  const vp = (box, key) => (box ? box[key] - s.scrollY : null);
+  flag("scrolled to first case (scrollY)", "1080", s.scrollY, s.scrollY === 1080);
+  num("scrolled: header bottom (viewport)", 118, s.header ? s.header.top + s.header.height - s.scrollY : null);
+  num("scrolled: logo top (text, viewport)", 48, vp(s.logo, "textTop"));
+  num("scrolled: nav text top (text, viewport)", 52, vp(s.nav, "textTop"));
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
