@@ -90,6 +90,19 @@ function setActiveNav() {
 window.addEventListener("scroll", setActiveNav, { passive: true });
 setActiveNav();
 
+const heroTitle = document.getElementById("hero-title");
+
+// The header stays transparent until the hero title's top reaches its bottom.
+function syncHeaderSolid() {
+  if (!header || !heroTitle) return;
+  const solid = heroTitle.getBoundingClientRect().top <= header.getBoundingClientRect().bottom;
+  header.classList.toggle("is-solid", solid);
+}
+
+window.addEventListener("scroll", syncHeaderSolid, { passive: true });
+window.addEventListener("resize", syncHeaderSolid);
+syncHeaderSolid();
+
 const motionOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 document.querySelectorAll(".case").forEach((caseEl) => {

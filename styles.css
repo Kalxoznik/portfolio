@@ -126,15 +126,15 @@ a {
      the header never moves with the page. Figma: 8px padding, row centre at
      y=63; the row is centred, so each 1px of top space takes 2px of padding. */
   padding: calc(8px + var(--header-top-space) * 2) 73px 0 var(--gutter);
-  background-color: var(--bg);
-  background-image: radial-gradient(
-    circle,
-    var(--dots) 1px,
-    transparent 1.15px
-  );
-  background-size: 32px 32px;
-  background-position: 0 0;
+  /* Transparent over the page's own dots until the hero title reaches the
+     header's bottom edge; then main.js fills it with the plain background,
+     no dots (POR-13). */
+  background-color: transparent;
   transition: background-color 0.35s ease;
+}
+
+.site-header.is-solid {
+  background-color: var(--bg);
 }
 
 .nav {

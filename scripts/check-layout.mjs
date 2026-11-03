@@ -189,6 +189,31 @@ try {
   const over1920 = await page.evaluate(overflowX);
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
 
+  // The header is transparent until the hero title's top reaches its bottom,
+  // then fills with the plain background, no dots (POR-13). 400ms lets the
+  // 0.35s fade finish: it runs in the check's reduced-motion mode too.
+  const CLEAR = "rgba(0, 0, 0, 0) / none";
+  const SOLID = "rgb(22, 21, 20) / none";
+  async function headerBgAt(y) {
+    return page.evaluate(async (y) => {
+      window.scrollTo({ top: y, behavior: "instant" });
+      await new Promise((r) => setTimeout(r, 400));
+      const cs = getComputedStyle(document.querySelector('[data-check="header"]'));
+      return `${cs.backgroundColor} / ${cs.backgroundImage}`;
+    }, y);
+  }
+  const top0Bg = await headerBgAt(0);
+  flag("header transparent at scrollY 0", CLEAR, top0Bg, top0Bg === CLEAR);
+  const solidAt = m.heroTitle && m.header ? Math.round(m.heroTitle.top - (m.header.top + m.header.height)) : null;
+  if (solidAt == null) {
+    flag("header fill threshold (title top − header bottom)", "measured", "missing", false);
+  } else {
+    const beforeBg = await headerBgAt(solidAt - 4);
+    flag(`header transparent 4px before fill (scrollY ${solidAt - 4})`, CLEAR, beforeBg, beforeBg === CLEAR);
+    const afterBg = await headerBgAt(solidAt + 4);
+    flag(`header filled 4px after fill (scrollY ${solidAt + 4})`, SOLID, afterBg, afterBg === SOLID);
+  }
+
   // Scrolled to the first case: the sticky header has not moved, the row is
   // still 6px below Figma. Viewport coordinates (page position minus scrollY).
   await page.evaluate(async () => {
@@ -201,6 +226,10 @@ try {
   num("scrolled: header bottom (viewport)", 118, s.header ? s.header.top + s.header.height - s.scrollY : null);
   num("scrolled: logo top (text, viewport)", 54, vp(s.logo, "textTop"));
   num("scrolled: nav text top (text, viewport)", 58, vp(s.nav, "textTop"));
+  const caseBg = await headerBgAt(1080);
+  flag("header filled at first case (scrollY 1080)", SOLID, caseBg, caseBg === SOLID);
+  const backBg = await headerBgAt(0);
+  flag("header transparent again back at top", CLEAR, backBg, backBg === CLEAR);
 
   // 1081–1299: the nav folds into a MENU button, which must clear the centred
   // logo by the 26px nav gap; from 1300 the full nav row clears it (POR-12).
