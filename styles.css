@@ -1096,6 +1096,12 @@ a:focus-visible .roll-char > span {
   .contact-email {
     font-size: clamp(26px, 7.6vw, 64px);
   }
+
+  /* Four footer links (POR-34) must stay in one row at 375. */
+  .footer-links {
+    column-gap: 12px;
+    letter-spacing: 1px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

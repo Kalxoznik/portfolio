@@ -917,6 +917,70 @@ try {
   flag("og-image.png loads, 1200x630", "1200x630", head.ogImageSize, head.ogImageSize === "1200x630");
   flag("og:image:width x height", "1200x630", head.ogImageWh, head.ogImageWh === "1200x630");
   flag("twitter:card", "summary_large_image", head.twitterCard, head.twitterCard === "summary_large_image");
+
+  // Profile links (POR-34): header LinkedIn (inside the open MENU under 1400)
+  // and the footer row LinkedIn · Dribbble · GitHub · CV, at 1920 and 375.
+  const LINKEDIN = "https://www.linkedin.com/in/max-shakurov/";
+  const DRIBBBLE = "https://dribbble.com/max_shakurov";
+  const GITHUB = "https://github.com/Kalxoznik";
+  for (const width of [1920, 375]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 1080 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const menu = await page.evaluate(async () => {
+      const button = document.querySelector('[data-check="menu-toggle"]');
+      if (!button || getComputedStyle(button).display === "none") return false;
+      button.click();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return true;
+    });
+    const links = await page.evaluate(() => {
+      const info = (a) => {
+        if (!a) return null;
+        const r = a.getBoundingClientRect();
+        const visible = r.width > 0 && r.height > 0 && getComputedStyle(a).visibility === "visible";
+        return {
+          href: a.getAttribute("href"),
+          target: a.getAttribute("target"),
+          rel: a.getAttribute("rel"),
+          visible,
+          top: r.top + scrollY,
+          left: r.left,
+          right: r.right,
+          text: a.textContent.replace(/\s+/g, " ").trim(),
+        };
+      };
+      const footer = [...document.querySelectorAll(".footer-links a")].map(info);
+      const row = document.querySelector(".footer-links").getBoundingClientRect();
+      return {
+        header: info(document.querySelector(".nav .nav-external")),
+        footer,
+        rowRight: row.right,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    if (menu) {
+      await page.evaluate(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        await new Promise((r) => setTimeout(r, 300));
+      });
+    }
+    const ext = (name, url, l) => {
+      const actual = l ? `${l.href} ${l.target} ${l.rel} ${l.visible ? "visible" : "hidden"}` : "missing";
+      flag(`${name}: href, _blank, noopener, visible @${width}`, `${url} _blank noopener visible`, actual, !!l && l.href === url && l.target === "_blank" && l.rel === "noopener" && l.visible);
+    };
+    ext("header LinkedIn link", LINKEDIN, links.header);
+    const f = links.footer;
+    ext("footer LinkedIn link", LINKEDIN, f[0]);
+    ext("footer Dribbble link", DRIBBBLE, f[1]);
+    ext("footer GitHub link", GITHUB, f[2]);
+    const order = f.map((l) => l?.text).join(" · ");
+    flag(`footer order @${width}`, "LinkedIn · Dribbble · GitHub · CV", order, order === "LinkedIn · Dribbble · GitHub · CV");
+    const tops = f.map((l) => l.top);
+    const oneRow = Math.max(...tops) - Math.min(...tops) < 2;
+    flag(`footer links in one row @${width}`, "same top", tops.map(fmt).join(" / "), oneRow);
+    const inside = f.every((l) => l.left >= 0 && l.right <= width);
+    flag(`footer links inside the window, no scroll @${width}`, `0 … ${width}, 0`, `${fmt(Math.min(...f.map((l) => l.left)))} … ${fmt(Math.max(...f.map((l) => l.right)))}, ${links.overflow}`, inside && links.overflow <= 0);
+  }
 } finally {
   await browser.close();
   server.close();
