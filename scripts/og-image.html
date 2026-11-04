@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <!-- Source of assets/og-image.png, rendered at 1200x630 by `npm run images`. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&display=block" rel="stylesheet">
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+
+      /* Dark theme body: --bg and the 32px --dots grid from styles.css. */
+      body {
+        position: relative;
+        background-color: #161514;
+        background-image: radial-gradient(circle, #44423c 1px, transparent 1.15px);
+        background-size: 32px 32px;
+        font-family: "Unbounded", sans-serif;
+        font-weight: 700;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wordmark {
+        position: absolute;
+        top: 88px;
+        left: 80px;
+        margin: 0;
+        color: #ffaf2e;
+        font-size: 36px;
+        letter-spacing: 1.5px;
+        line-height: 44px;
+      }
+
+      .line {
+        position: absolute;
+        left: 80px;
+        bottom: 80px;
+        margin: 0;
+        color: #fff8e3;
+        font-size: 64px;
+        line-height: 80px;
+      }
+
+      .line span {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="wordmark" data-og="text">MAXSHAKUROV</p>
+    <p class="line" data-og="text">
+      <span>I take ideas</span>
+      <span>from first sketch</span>
+      <span>to working product.</span>
+    </p>
+  </body>
+</html>

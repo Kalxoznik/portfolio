@@ -859,6 +859,64 @@ try {
     flag(`motion on: no horizontal scroll, halo at max @${width}`, "0", h.overflow, h.overflow <= 0);
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
+
+  // CV links, icons and link previews (POR-30). https://DOMAIN/ is the
+  // placeholder in the head; files under it are loaded from this server. The
+  // CV PDF is not in cv/ yet, so only the links are checked, not the file.
+  const head = await page.evaluate(async () => {
+    const attr = (sel, name) => document.querySelector(sel)?.getAttribute(name) ?? "missing";
+    const local = (href) => href.replace("https://DOMAIN/", "/");
+    const status = async (href) => (href === "missing" ? "missing" : (await fetch(local(href))).status);
+    const size = (href) =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(`${img.naturalWidth}x${img.naturalHeight}`);
+        img.onerror = () => resolve("missing");
+        img.src = local(href);
+      });
+    const cv = (sel) => {
+      const a = document.querySelector(sel);
+      return a ? `${a.getAttribute("href")}${a.hasAttribute("download") ? " download" : ""}` : "missing";
+    };
+    const icon = attr('link[rel="icon"]', "href");
+    const touch = attr('link[rel="apple-touch-icon"]', "href");
+    const ogImage = attr('meta[property="og:image"]', "content");
+    return {
+      cvHeader: cv(".nav a[download]"),
+      cvFooter: cv(".footer-cv"),
+      iconType: attr('link[rel="icon"]', "type"),
+      icon,
+      iconStatus: await status(icon),
+      touch,
+      touchSize: await size(touch),
+      canonical: attr('link[rel="canonical"]', "href"),
+      description: attr('meta[name="description"]', "content"),
+      ogType: attr('meta[property="og:type"]', "content"),
+      ogUrl: attr('meta[property="og:url"]', "content"),
+      ogTitle: attr('meta[property="og:title"]', "content"),
+      ogDescription: attr('meta[property="og:description"]', "content"),
+      ogImage,
+      ogImageSize: await size(ogImage),
+      ogImageWh: `${attr('meta[property="og:image:width"]', "content")}x${attr('meta[property="og:image:height"]', "content")}`,
+      twitterCard: attr('meta[name="twitter:card"]', "content"),
+    };
+  });
+  const cvHref = "cv/Max_Shakurov_Product_Designer_CV.pdf download";
+  flag("header CV link: href + download", cvHref, head.cvHeader, head.cvHeader === cvHref);
+  flag("footer CV link: href + download", cvHref, head.cvFooter, head.cvFooter === cvHref);
+  flag("favicon link: favicon.svg, image/svg+xml", "favicon.svg image/svg+xml", `${head.icon} ${head.iconType}`, head.icon === "favicon.svg" && head.iconType === "image/svg+xml");
+  flag("favicon.svg loads", 200, head.iconStatus, head.iconStatus === 200);
+  flag("apple-touch-icon link", "apple-touch-icon.png", head.touch, head.touch === "apple-touch-icon.png");
+  flag("apple-touch-icon.png loads, 180x180", "180x180", head.touchSize, head.touchSize === "180x180");
+  flag("canonical", "https://DOMAIN/", head.canonical, head.canonical === "https://DOMAIN/");
+  flag("og:url", "https://DOMAIN/", head.ogUrl, head.ogUrl === "https://DOMAIN/");
+  flag("og:type", "website", head.ogType, head.ogType === "website");
+  flag("og:title", "Max Shakurov — Product Designer", head.ogTitle, head.ogTitle === "Max Shakurov — Product Designer");
+  flag("og:description = meta description", head.description, head.ogDescription, head.ogDescription === head.description && head.description !== "missing");
+  flag("og:image: full URL", "https://DOMAIN/assets/og-image.png", head.ogImage, head.ogImage === "https://DOMAIN/assets/og-image.png");
+  flag("og-image.png loads, 1200x630", "1200x630", head.ogImageSize, head.ogImageSize === "1200x630");
+  flag("og:image:width x height", "1200x630", head.ogImageWh, head.ogImageWh === "1200x630");
+  flag("twitter:card", "summary_large_image", head.twitterCard, head.twitterCard === "summary_large_image");
 } finally {
   await browser.close();
   server.close();
