@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the site
+        uses: actions/checkout@v4
+
+      - name: Pack the published files
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/site/cv"
+          cp index.html styles.css main.js favicon.svg apple-touch-icon.png "$RUNNER_TEMP/site/"
+          cp -a assets "$RUNNER_TEMP/site/assets"
+          find cv -type f ! -name '.*' -exec cp {} "$RUNNER_TEMP/site/cv/" \;
+          tar -C "$RUNNER_TEMP/site" -czf "$RUNNER_TEMP/site.tar.gz" .
+
+      - name: Publish the release
+        env:
+          SSH_KEY: ${{ secrets.PORTFOLIO_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/portfolio_deploy
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/portfolio_deploy
+          ssh -i ~/.ssh/portfolio_deploy \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$GITHUB_WORKSPACE/.github/deploy-known_hosts" \
+            portfolio@54.93.153.81 "${{ github.sha }}" < "$RUNNER_TEMP/site.tar.gz"
