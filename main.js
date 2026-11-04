@@ -662,8 +662,18 @@ if (gl) {
 document.querySelectorAll(".case").forEach((caseEl) => {
   const scroller = caseEl.querySelector(".carousel");
   const slides = [...caseEl.querySelectorAll(".slide")];
-  const dots = [...caseEl.querySelectorAll(".carousel-dots button")];
+  const dotsEl = caseEl.querySelector(".carousel-dots");
   if (!scroller || !slides.length) return;
+
+  // One dot per slide, built from the slides, so a new screen needs only HTML.
+  const dots = slides.map((slide, index) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.setAttribute("aria-label", `Show screen ${index + 1}`);
+    if (index === 0) dot.setAttribute("aria-current", "true");
+    dotsEl?.appendChild(dot);
+    return dot;
+  });
 
   let dragging = false;
   let moved = false;
