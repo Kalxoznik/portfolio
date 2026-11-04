@@ -486,6 +486,24 @@ a {
   color: var(--text-muted);
 }
 
+/* A real screen sits in the same box and covers it; the box colour shows
+   while the image loads. */
+.placeholder:has(img) {
+  position: relative;
+  overflow: hidden;
+}
+
+.placeholder img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 .placeholder-icon {
   width: 32px;
   height: 32px;
