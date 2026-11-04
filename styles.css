@@ -446,7 +446,8 @@ a {
   scroll-snap-type: x mandatory;
   scroll-padding-left: var(--gutter);
   scrollbar-width: none;
-  cursor: grab;
+  /* Vertical page scroll stays with the browser; horizontal swipe is in main.js. */
+  touch-action: pan-y;
   overscroll-behavior-x: contain;
 }
 
@@ -455,7 +456,6 @@ a {
 }
 
 .carousel.is-dragging {
-  cursor: grabbing;
   scroll-snap-type: none;
   user-select: none;
 }
@@ -502,6 +502,35 @@ a {
   border-radius: inherit;
   -webkit-user-drag: none;
   user-select: none;
+}
+
+/* Grab and a slight zoom only where a real pointer can hover. Touch keeps
+   the default cursor and does not scale the image. */
+@media (hover: hover) and (pointer: fine) {
+  .carousel {
+    cursor: grab;
+  }
+
+  .carousel.is-dragging,
+  .carousel.is-dragging .placeholder,
+  .carousel.is-dragging .placeholder img {
+    cursor: grabbing;
+  }
+
+  .placeholder,
+  .placeholder img {
+    cursor: zoom-in;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .placeholder img {
+    transition: transform 0.45s ease;
+  }
+
+  .placeholder:hover img {
+    transform: scale(1.035);
+  }
 }
 
 .placeholder-icon {

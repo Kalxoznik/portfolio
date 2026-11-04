@@ -860,12 +860,12 @@ try {
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
 
-  // CV links, icons and link previews (POR-30). https://DOMAIN/ is the
-  // placeholder in the head; files under it are loaded from this server. The
+  // CV links, icons and link previews (POR-30). The canonical origin is
+  // https://maxshakurov.com/; files under it are loaded from this server. The
   // CV PDF is not in cv/ yet, so only the links are checked, not the file.
   const head = await page.evaluate(async () => {
     const attr = (sel, name) => document.querySelector(sel)?.getAttribute(name) ?? "missing";
-    const local = (href) => href.replace("https://DOMAIN/", "/");
+    const local = (href) => href.replace("https://maxshakurov.com/", "/");
     const status = async (href) => (href === "missing" ? "missing" : (await fetch(local(href))).status);
     const size = (href) =>
       new Promise((resolve) => {
@@ -908,12 +908,12 @@ try {
   flag("favicon.svg loads", 200, head.iconStatus, head.iconStatus === 200);
   flag("apple-touch-icon link", "apple-touch-icon.png", head.touch, head.touch === "apple-touch-icon.png");
   flag("apple-touch-icon.png loads, 180x180", "180x180", head.touchSize, head.touchSize === "180x180");
-  flag("canonical", "https://DOMAIN/", head.canonical, head.canonical === "https://DOMAIN/");
-  flag("og:url", "https://DOMAIN/", head.ogUrl, head.ogUrl === "https://DOMAIN/");
+  flag("canonical", "https://maxshakurov.com/", head.canonical, head.canonical === "https://maxshakurov.com/");
+  flag("og:url", "https://maxshakurov.com/", head.ogUrl, head.ogUrl === "https://maxshakurov.com/");
   flag("og:type", "website", head.ogType, head.ogType === "website");
   flag("og:title", "Max Shakurov — Product Designer", head.ogTitle, head.ogTitle === "Max Shakurov — Product Designer");
   flag("og:description = meta description", head.description, head.ogDescription, head.ogDescription === head.description && head.description !== "missing");
-  flag("og:image: full URL", "https://DOMAIN/assets/og-image.png", head.ogImage, head.ogImage === "https://DOMAIN/assets/og-image.png");
+  flag("og:image: full URL", "https://maxshakurov.com/assets/og-image.png", head.ogImage, head.ogImage === "https://maxshakurov.com/assets/og-image.png");
   flag("og-image.png loads, 1200x630", "1200x630", head.ogImageSize, head.ogImageSize === "1200x630");
   flag("og:image:width x height", "1200x630", head.ogImageWh, head.ogImageWh === "1200x630");
   flag("twitter:card", "summary_large_image", head.twitterCard, head.twitterCard === "summary_large_image");
