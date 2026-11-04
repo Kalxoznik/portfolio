@@ -393,36 +393,28 @@ a {
   line-height: 1;
 }
 
-.case-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 48px;
-  margin-top: 11px;
-}
-
 .case-summary {
   max-width: 1319px;
-  margin: 0;
+  margin: 13px 0 0;
   color: var(--text-secondary);
   font-size: 18px;
   line-height: 1.34;
   opacity: 0.85;
 }
 
+/* One row of pairs under the title (POR-32); a pair wraps whole. */
 .case-meta {
   display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 10px;
-  width: 320px;
-  margin: 0;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 18px 0 0;
 }
 
 .case-meta div {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 7px;
+  white-space: nowrap;
 }
 
 .case-meta dt {
@@ -964,15 +956,6 @@ a:focus-visible .roll-char > span {
 @media (max-width: 1200px) {
   :root {
     --gutter: 40px;
-  }
-
-  .case-row {
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .case-meta {
-    width: auto;
   }
 
   .hero h1 {

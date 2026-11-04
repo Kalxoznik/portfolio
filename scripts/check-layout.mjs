@@ -99,6 +99,8 @@ function measure() {
     heroTitle: one("hero-title"),
     heroLead: one("hero-lead"),
     case1Title: one("case-title", 0),
+    case1Meta: one("case-meta", 0),
+    case1Summary: one("case-summary", 0),
     case1Carousel: one("case-carousel", 0),
     case1Dots: one("case-dots", 0),
     case2Title: one("case-title", 1),
@@ -199,6 +201,70 @@ try {
     });
   }
 
+  // Case head (POR-32), first case. The picture is at 1.724 px per CSS px (its
+  // 32px dot grid is 55.18 px): meta 18px under the title box, text 13px under
+  // the meta row, pairs 24px apart, dt 7px before its dd. Line ends are read
+  // from a Range per word.
+  async function caseHeadChecks(width) {
+    const c = await page.evaluate(() => {
+      const head = document.querySelector(".case-head");
+      const rect = (el) => el.getBoundingClientRect();
+      const title = rect(head.querySelector("h3"));
+      const meta = rect(head.querySelector(".case-meta"));
+      const p = head.querySelector(".case-summary");
+      const text = rect(p);
+      const pairs = [...head.querySelectorAll(".case-meta div")].map((d) => {
+        const dt = rect(d.querySelector("dt"));
+        const dd = rect(d.querySelector("dd"));
+        return { dt, dd, box: rect(d), name: d.querySelector("dt").textContent };
+      });
+      const node = p.firstChild;
+      const range = document.createRange();
+      const lineEnds = [];
+      let lastTop = null;
+      let lastWord = null;
+      for (const match of node.data.matchAll(/\S+/g)) {
+        range.setStart(node, match.index);
+        range.setEnd(node, match.index + match[0].length);
+        const top = range.getBoundingClientRect().top;
+        if (lastTop != null && top > lastTop + 1) lineEnds.push(lastWord);
+        lastTop = top;
+        lastWord = match[0];
+      }
+      lineEnds.push(lastWord);
+      return {
+        titleBottom: title.bottom,
+        metaTop: meta.top,
+        metaBottom: meta.bottom,
+        textTop: text.top,
+        pairs,
+        lineEnds,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    const pairs = c.pairs;
+    flag(`case meta pairs found @${width}`, "3", pairs.length, pairs.length === 3);
+    if (width === 1920) {
+      const tops = pairs.map((q) => fmt(q.box.top));
+      flag("case meta: three pairs in one row", "one top", tops.join(" / "), new Set(tops).size === 1);
+      num("case meta top = title bottom + 18", c.titleBottom + 18, c.metaTop, 0.5);
+      num("case text top = meta bottom + 13", c.metaBottom + 13, c.textTop, 0.5);
+      for (let i = 1; i < pairs.length; i++) {
+        num(`case meta: pair ${i}→${i + 1} gap`, 24, pairs[i].box.left - pairs[i - 1].box.right, 0.5);
+      }
+      num("case meta: ROLE dt→dd gap", 7, pairs[0].dd.left - pairs[0].dt.right, 0.5);
+      const ends = c.lineEnds.join(" | ");
+      flag("case text: 3 lines, breaks after \"turns\" and \"and\"", "turns | and | place.", ends, ends === "turns | and | place.");
+    }
+    const sameLine = pairs.every((q) => Math.abs(q.dt.bottom - q.dd.bottom) <= 2 && q.dd.left >= q.dt.right && q.dt.height <= 17 && q.dd.height <= 18);
+    flag(`case meta: each dt on one line with its dd @${width}`, "yes", sameLine ? "yes" : "no", sameLine);
+    const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const overlaps = pairs.filter((q, i) => pairs.some((o, j) => j > i && hit(q.box, o.box))).length;
+    flag(`case meta: pairs do not overlap @${width}`, "0", overlaps, overlaps === 0);
+    flag(`case meta above text @${width}`, `≤ ${fmt(c.textTop)}`, fmt(c.metaBottom), c.metaBottom <= c.textTop);
+    flag(`no horizontal scroll, case head @${width}`, "0", c.overflow, c.overflow <= 0);
+  }
+
   const m = await page.evaluate(measure);
   const v =(box, key) => (box ? box[key] : null);
   const plus = (box, key, add) => (box ? box[key] + add : null);
@@ -222,9 +288,12 @@ try {
   num("hero title top (text)", 364, v(m.heroTitle, "textTop"));
   num("hero subline top (text)", 633, v(m.heroLead, "textTop"));
   num("case 1 title top (text)", 1198, v(m.case1Title, "textTop"));
-  num("case 1 carousel top", 1345, v(m.case1Carousel, "top"));
-  num("case 1 dots top", 2104, v(m.case1Dots, "top"));
-  num("case 2 title top (text)", 2278, v(m.case2Title, "textTop"));
+  // The case head of Max Shakurov's picture (POR-32): title, a row of meta
+  // pairs, then the text. The carousel keeps its 24px under the text, so the
+  // dots and case 2 moved down by the meta row.
+  num("case 1 carousel top = summary bottom + 24", m.case1Summary ? m.case1Summary.top + m.case1Summary.height + 24 : null, v(m.case1Carousel, "top"));
+  num("case 1 dots top (POR-32)", 2141, v(m.case1Dots, "top"));
+  num("case 2 title top (text, POR-32)", 2315, v(m.case2Title, "textTop"));
   num("Experience H2 top = about + 118 (text)", plus(m.about, "top", 118), v(m.aboutTitle, "textTop"));
   num("first timeline date = H2 + 100 (text)", plus(m.aboutTitle, "textTop", 100), v(m.timelineDate, "textTop"));
   num("footer height", 1080, v(m.footer, "height"));
@@ -234,6 +303,7 @@ try {
   const over1920 = await page.evaluate(overflowX);
   flag("no horizontal scroll @1920", "0", over1920, over1920 <= 0);
   await timelineChecks(1920);
+  await caseHeadChecks(1920);
 
   // Experience links: the arrow never wraps away from the link's last word
   // (POR-19). Each paragraph is narrowed from its 1920 width to 240 in 1px
@@ -724,6 +794,11 @@ try {
   const over375 = await page.evaluate(overflowX);
   flag("no horizontal scroll @375", "0", over375, over375 <= 0);
   await timelineChecks(375);
+  for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1399, 1400]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await caseHeadChecks(width);
+  }
 
   // Current item's halo (POR-25). Reduced motion: the still 6px shadow at 32%,
   // no ::after. Motion on: ::after grows from the 12px dot to 48px and fades,
