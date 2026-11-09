@@ -531,14 +531,14 @@ a {
   top: 0;
   left: 0;
   z-index: 30;
-  padding: 6px 10px 6px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: var(--accent);
   color: #161514;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0;
   line-height: 16px;
   text-transform: uppercase;
   white-space: nowrap;
@@ -653,6 +653,7 @@ a {
   --text-primary: #fff8e3;
   --text-secondary: #d3cfc3;
   --text-muted: #a99d7a;
+  --label-eyebrow: var(--text-primary);
   --surface-placeholder: #2c2b27;
   position: fixed;
   inset: 0;

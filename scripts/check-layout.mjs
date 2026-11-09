@@ -1117,7 +1117,14 @@ try {
         bg: cs.backgroundColor,
         color: cs.color,
         font: `${cs.fontSize} ${cs.fontWeight} ${cs.textTransform} ${cs.fontFamily.split(",")[0].replace(/"/g, "")}`,
+        type: `${cs.fontSize} ${cs.fontWeight} ${cs.letterSpacing}`,
       };
+    });
+  // The same three values on a slide label, for the pill to match.
+  const eyebrowType = (p) =>
+    p.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector(".carousel .eyebrow"));
+      return `${cs.fontSize} ${cs.fontWeight} ${cs.letterSpacing}`;
     });
   const lightboxState = (p) =>
     p.evaluate(() => {
@@ -1132,6 +1139,7 @@ try {
         eyebrow: caption.querySelector(".eyebrow")?.textContent,
         text: caption.querySelector(".caption-text")?.textContent,
         textColor: caption.querySelector(".caption-text") ? getComputedStyle(caption.querySelector(".caption-text")).color : null,
+        eyebrowColor: caption.querySelector(".eyebrow") ? getComputedStyle(caption.querySelector(".eyebrow")).color : null,
         dialogBg: getComputedStyle(box).backgroundColor,
         focusInside: box.contains(active),
         focusOnSlide: active.classList.contains("slide"),
@@ -1156,6 +1164,8 @@ try {
     flag(`cursor ${tag}: pill in --accent`, accent, label.bg, label.bg === accent);
     flag(`cursor ${tag}: dark text`, "rgb(22, 21, 20)", label.color, label.color === "rgb(22, 21, 20)");
     flag(`cursor ${tag}: 13px Inter Bold uppercase`, "13px 700 uppercase Inter", label.font, label.font === "13px 700 uppercase Inter");
+    const slideLabelType = await eyebrowType(p);
+    flag(`cursor ${tag}: pill type matches the slide labels`, slideLabelType, label.type, label.type === slideLabelType);
     flag(`cursor ${tag}: pill stays inside the window`, `0 … ${width}`, `${fmt(label.left)} … ${fmt(label.right)}`, label.left >= 0 && label.right <= width);
     const hidden = await p.evaluate(() => getComputedStyle(document.querySelector(".carousel .placeholder")).cursor);
     flag(`cursor ${tag}: native cursor hidden over slides`, "none", hidden, hidden === "none");
@@ -1184,6 +1194,7 @@ try {
     flag(`lightbox ${tag}: click on the active slide opens it`, "open", lb.open ? "open" : "closed", lb.open);
     flag(`lightbox ${tag}: caption of that slide`, "Screen 01", lb.eyebrow, lb.eyebrow === "Screen 01");
     flag(`lightbox ${tag}: caption text is light`, "rgb(211, 207, 195)", lb.textColor, lb.textColor === "rgb(211, 207, 195)");
+    flag(`lightbox ${tag}: caption label is light`, "rgb(255, 248, 227)", lb.eyebrowColor, lb.eyebrowColor === "rgb(255, 248, 227)");
     const fits = lb.media[0] >= 0 && lb.media[1] >= 0 && lb.media[2] <= width && lb.captionBottom <= height;
     flag(`lightbox ${tag}: image and caption fit the window`, `0 … ${width}, ≤ ${height}`, `${lb.media.map(fmt).join(" ")}, caption ${fmt(lb.captionBottom)}`, fits);
     flag(`lightbox ${tag}: image larger than the slide`, width === 1920 ? "> 953" : "> 322.5", fmt(lb.media[2] - lb.media[0]), lb.media[2] - lb.media[0] > (width === 1920 ? 953 : 322.5));
@@ -1311,6 +1322,22 @@ try {
     await settle(p);
     const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     flag(`carousel ${tag}: no horizontal scroll`, "0", over, over <= 0);
+    await p.context().close();
+  }
+
+  // System light with no data-theme: its own block sets the label colour. The
+  // script in index.html always sets the attribute, so it is taken off here.
+  for (const [width, height] of [[1920, 1080], [375, 812]]) {
+    const tag = `system light @${width}`;
+    const p = await openCarouselPage({ viewport: { width, height }, reducedMotion: "reduce", colorScheme: "light" });
+    await p.evaluate(() => document.documentElement.removeAttribute("data-theme"));
+    await settle(p);
+    const theme = await p.evaluate(() => document.documentElement.getAttribute("data-theme"));
+    flag(`lightbox ${tag}: no data-theme`, "null", String(theme), theme === null);
+    await clickSlide(p, 0);
+    const lb = await lightboxState(p);
+    flag(`lightbox ${tag}: opens`, "open", lb.open ? "open" : "closed", lb.open);
+    flag(`lightbox ${tag}: caption label is light`, "rgb(255, 248, 227)", lb.eyebrowColor, lb.eyebrowColor === "rgb(255, 248, 227)");
     await p.context().close();
   }
 
