@@ -1138,6 +1138,10 @@ try {
         media: [media.left, media.top, media.right, media.bottom],
         captionBottom: caption.getBoundingClientRect().bottom,
         eyebrow: caption.querySelector(".eyebrow")?.textContent,
+        counter: caption.querySelector(".lightbox-counter")?.textContent,
+        prev: !box.querySelector(".lightbox-prev").hidden,
+        next: !box.querySelector(".lightbox-next").hidden,
+        boxes: box.querySelectorAll(".lightbox-media > .placeholder").length,
         text: caption.querySelector(".caption-text")?.textContent,
         textColor: caption.querySelector(".caption-text") ? getComputedStyle(caption.querySelector(".caption-text")).color : null,
         eyebrowColor: caption.querySelector(".eyebrow") ? getComputedStyle(caption.querySelector(".eyebrow")).color : null,
@@ -1198,6 +1202,8 @@ try {
     let lb = await lightboxState(p);
     flag(`lightbox ${tag}: click on the active slide opens it`, "open", lb.open ? "open" : "closed", lb.open);
     flag(`lightbox ${tag}: caption of that slide`, "Screen 01", lb.eyebrow, lb.eyebrow === "Screen 01");
+    flag(`lightbox ${tag}: counter under the image`, "1 / 3", lb.counter, lb.counter === "1 / 3");
+    flag(`lightbox ${tag}: first slide shows next only`, "prev hidden, next shown", `prev ${lb.prev ? "shown" : "hidden"}, next ${lb.next ? "shown" : "hidden"}`, !lb.prev && lb.next);
     flag(`lightbox ${tag}: caption text is light`, "rgb(211, 207, 195)", lb.textColor, lb.textColor === "rgb(211, 207, 195)");
     flag(`lightbox ${tag}: caption label is light`, "rgb(255, 248, 227)", lb.eyebrowColor, lb.eyebrowColor === "rgb(255, 248, 227)");
     const fits = lb.media[0] >= 0 && lb.media[1] >= 0 && lb.media[2] <= width && lb.captionBottom <= height;
@@ -1225,6 +1231,56 @@ try {
     await p.keyboard.press("ArrowRight");
     lb = await lightboxState(p);
     flag(`lightbox ${tag}: → shows the next slide`, "Screen 02", lb.eyebrow, lb.eyebrow === "Screen 02");
+    await settle(p);
+    flag(`lightbox ${tag}: → advances the counter and the carousel dot`, "2 / 3, dot 1", `${lb.counter}, dot ${await activeDot(p)}`, lb.counter === "2 / 3" && (await activeDot(p)) === 1);
+
+    // Browsing inside it (POR-47): the next button, the cursor halves, hovers.
+    await p.click(".lightbox-next");
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: next button advances the counter and the dot`, "Screen 03, 3 / 3, dot 2", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 03" && lb.counter === "3 / 3" && (await activeDot(p)) === 2);
+    flag(`lightbox ${tag}: last slide shows prev only`, "prev shown, next hidden", `prev ${lb.prev ? "shown" : "hidden"}, next ${lb.next ? "shown" : "hidden"}`, lb.prev && !lb.next);
+    flag(`lightbox ${tag}: focus stays in it when next hides`, "inside", lb.focusInside ? "inside" : "outside", lb.focusInside);
+    flag(`lightbox ${tag}: reduced motion swaps at once`, 1, lb.boxes, lb.boxes === 1);
+    const arrows = await p.evaluate(() => {
+      const m = document.querySelector(".lightbox-media").getBoundingClientRect();
+      const prev = document.querySelector(".lightbox-prev").getBoundingClientRect();
+      return { m, prevLeft: prev.left, prevMid: prev.top + prev.height / 2 };
+    });
+    flag(`lightbox ${tag}: prev button on the left edge, mid-height`, `left < 30, ${fmt(height / 2)}`, `${fmt(arrows.prevLeft)}, ${fmt(arrows.prevMid)}`, arrows.prevLeft < 30 && Math.abs(arrows.prevMid - height / 2) < 1);
+    await p.hover(".lightbox-prev");
+    await settle(p);
+    const navHover = await p.evaluate(() => getComputedStyle(document.querySelector(".lightbox-prev")).color);
+    flag(`hover ${tag}: lightbox prev goes to --accent`, "rgb(255, 175, 46)", navHover, navHover === "rgb(255, 175, 46)");
+    flag(`cursor ${tag}: no pill over a lightbox button`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    const mid = arrows.m.top + arrows.m.height / 2;
+    await p.mouse.move(arrows.m.left + arrows.m.width * 0.25, mid);
+    await settle(p);
+    label = await labelState(p);
+    flag(`cursor ${tag}: left half of the image reads PREV`, "← PREV visible", `${label.text} ${label.visible ? "visible" : "hidden"}`, label.text === "← PREV" && label.visible);
+    const inDialog = await p.evaluate(() => document.querySelector(".cursor-label").parentElement.classList.contains("lightbox"));
+    flag(`cursor ${tag}: pill drawn in the dialog's top layer`, "yes", inDialog ? "yes" : "no", inDialog);
+    await p.mouse.move(arrows.m.left + arrows.m.width * 0.75, mid);
+    await settle(p);
+    flag(`cursor ${tag}: right half on the last slide shows no pill`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    await p.mouse.move(width / 2, 8);
+    await settle(p);
+    label = await labelState(p);
+    flag(`cursor ${tag}: outside the image reads CLOSE`, "CLOSE visible", `${label.text} ${label.visible ? "visible" : "hidden"}`, label.text === "CLOSE" && label.visible);
+    await p.mouse.click(arrows.m.left + arrows.m.width * 0.25, mid);
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: click on the left half steps back`, "Screen 02, 2 / 3, dot 1", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 02" && lb.counter === "2 / 3" && (await activeDot(p)) === 1);
+    await p.mouse.move(arrows.m.left + arrows.m.width * 0.75, mid);
+    await settle(p);
+    flag(`cursor ${tag}: right half reads NEXT`, "NEXT →", (await labelState(p)).text, (await labelState(p)).text === "NEXT →");
+    await p.keyboard.press("Tab");
+    const ring = await p.evaluate(() => {
+      const a = document.activeElement;
+      const cs = getComputedStyle(a);
+      return { button: a.classList.contains("lightbox-button"), visible: a.matches(":focus-visible"), outline: `${cs.outlineStyle} ${cs.outlineColor}` };
+    });
+    flag(`focus ${tag}: lightbox button shows a ring`, "solid rgb(255, 175, 46)", ring.outline, ring.button && ring.visible && ring.outline === "solid rgb(255, 175, 46)");
     await p.keyboard.press("Escape");
     await settle(p);
     lb = await lightboxState(p);
@@ -1319,6 +1375,12 @@ try {
       img.loading = "lazy";
       img.draggable = false;
       box.appendChild(img);
+      const next = document.querySelectorAll(".carousel")[1].querySelectorAll(".placeholder")[2];
+      const big = new Image(953, 675);
+      big.src = "assets/og-image.png";
+      big.dataset.full = "apple-touch-icon.png";
+      big.alt = "Test image";
+      next.replaceChildren(big);
     });
     await clickSlide(p, 1, 1);
     await settle(p);
@@ -1331,6 +1393,33 @@ try {
     await p.keyboard.press("ArrowLeft");
     lb = await lightboxState(p);
     flag(`lightbox ${tag}: ← skips the demo slide`, "Screen 02", lb.eyebrow, lb.eyebrow === "Screen 02");
+
+    // data-full (POR-47): the big file, preloaded from the slide before, never
+    // shown wider than it is (apple-touch-icon.png is 180 wide). A video plays
+    // muted on a loop.
+    const preloaded = await p.evaluate(() => performance.getEntriesByType("resource").some((e) => e.name.endsWith("/apple-touch-icon.png")));
+    flag(`lightbox ${tag}: next slide's data-full preloaded`, "yes", preloaded ? "yes" : "no", preloaded);
+    await p.keyboard.press("ArrowRight");
+    await p.waitForFunction(() => document.querySelector(".lightbox-media img")?.complete, null, { timeout: 3000 }).catch(() => {});
+    await settle(p);
+    const full = await p.evaluate(() => {
+      const img = document.querySelector(".lightbox-media img");
+      return { src: img?.getAttribute("src"), width: document.querySelector(".lightbox-media").getBoundingClientRect().width };
+    });
+    flag(`lightbox ${tag}: data-full is the file shown`, "apple-touch-icon.png", full.src, full.src === "apple-touch-icon.png");
+    flag(`lightbox ${tag}: never wider than the file`, "≤ 180", fmt(full.width), full.width <= 180.5);
+    await p.evaluate(() => {
+      const box = document.querySelectorAll(".carousel")[1].querySelectorAll(".placeholder")[1];
+      const video = document.createElement("video");
+      video.src = "missing.mp4";
+      box.replaceChildren(video);
+    });
+    await p.keyboard.press("ArrowLeft");
+    const video = await p.evaluate(() => {
+      const v = document.querySelector(".lightbox-media video");
+      return v ? `${v.muted ? "muted" : "sound"} ${v.loop ? "loop" : "once"} ${v.autoplay ? "autoplay" : "still"}` : "missing";
+    });
+    flag(`lightbox ${tag}: a video slide plays in it`, "muted loop autoplay", video, video === "muted loop autoplay");
     await p.keyboard.press("Escape");
     await settle(p);
     const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -1380,6 +1469,30 @@ try {
     flag("motion on: the step ends one dot on", 1, await activeDot(p), (await activeDot(p)) === 1);
     const left = await p.evaluate(() => document.querySelector(".carousel").scrollLeft);
     num("motion on: the step snaps to the next slide", 973, left, 1);
+
+    // Inside the lightbox a step crossfades over ~250ms (POR-47).
+    await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
+    await p.waitForTimeout(1200);
+    await p.evaluate(() => document.querySelector(".carousel .slide").focus({ preventScroll: true }));
+    await p.keyboard.press("Enter");
+    await p.waitForTimeout(300);
+    await p.keyboard.press("ArrowRight");
+    const fade = await p.evaluate(() => new Promise((r) => setTimeout(() => {
+      const leaving = document.querySelector(".lightbox-media > .is-leaving");
+      r({ boxes: document.querySelectorAll(".lightbox-media > .placeholder").length, opacity: leaving ? Number(getComputedStyle(leaving).opacity) : null });
+    }, 100)));
+    flag("motion on: lightbox step crossfades", "2 boxes, 0 < old opacity < 1", `${fade.boxes} boxes, ${fmt(fade.opacity)}`, fade.boxes === 2 && fade.opacity > 0 && fade.opacity < 1);
+    await p.waitForTimeout(300);
+    const faded = await p.evaluate(() => ({
+      boxes: document.querySelectorAll(".lightbox-media > .placeholder").length,
+      opacity: getComputedStyle(document.querySelector(".lightbox-media > .placeholder")).opacity,
+      eyebrow: document.querySelector(".lightbox-caption .eyebrow").textContent,
+    }));
+    flag("motion on: crossfade done by 400ms", "1 box, 1, Screen 02", `${faded.boxes} box, ${faded.opacity}, ${faded.eyebrow}`, faded.boxes === 1 && faded.opacity === "1" && faded.eyebrow === "Screen 02");
+    const hovers = await p.evaluate(() => [".lightbox-close", ".lightbox-next", ".demo-exit", ".demo-refresh", ".demo-trigger"]
+      .map((sel) => `${sel.slice(1)} ${getComputedStyle(document.querySelector(sel)).transitionDuration.split(",")[0]}`).join(", "));
+    const want = "lightbox-close 0.15s, lightbox-next 0.15s, demo-exit 0.15s, demo-refresh 0.15s, demo-trigger 0.15s";
+    flag("motion on: new controls fade their colour in 150ms", want, hovers, hovers === want);
     await p.context().close();
 
     const still = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
@@ -1519,6 +1632,36 @@ try {
     await settle(p);
     const lb = await lightboxState(p);
     flag("touch @375: tap on the active slide opens the lightbox", "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+
+    // A real swipe across the image (POR-47); Playwright's touchscreen only taps.
+    const cdp = await p.context().newCDPSession(p);
+    const swipe = async (from, to) => {
+      const y = 400;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from, y }] });
+      for (let i = 1; i <= 6; i++) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from + ((to - from) * i) / 6, y }] });
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await settle(p);
+    };
+    await swipe(300, 80);
+    let swiped = await lightboxState(p);
+    flag("touch @375: swipe left shows the next slide", "open Screen 03, 3 / 3, dot 2", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}, dot ${await activeDot(p)}`, swiped.open && swiped.eyebrow === "Screen 03" && swiped.counter === "3 / 3" && (await activeDot(p)) === 2);
+    flag("touch @375: next button hidden at the end", "hidden", swiped.next ? "shown" : "hidden", !swiped.next);
+    await swipe(80, 300);
+    swiped = await lightboxState(p);
+    flag("touch @375: swipe right steps back, stays open", "open Screen 02, 2 / 3", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}`, swiped.open && swiped.eyebrow === "Screen 02" && swiped.counter === "2 / 3");
+    const imgMid = await p.evaluate(() => {
+      const r = document.querySelector(".lightbox-media").getBoundingClientRect();
+      return { x: r.left + r.width * 0.75, y: r.top + r.height / 2 };
+    });
+    await p.touchscreen.tap(imgMid.x, imgMid.y);
+    await settle(p);
+    swiped = await lightboxState(p);
+    flag("touch @375: a tap on the image keeps it open", "open Screen 02", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}`, swiped.open && swiped.eyebrow === "Screen 02");
+    await p.keyboard.press("Escape");
+    await settle(p);
+    flag("touch @375: closes on the slide reached", "dot 1", `dot ${await activeDot(p)}`, (await activeDot(p)) === 1);
     await p.context().close();
   }
 
@@ -1690,6 +1833,15 @@ try {
     }, null, { polling: 50, timeout: 10000 });
     const kept = await p.evaluate(() => document.querySelector(".demo-column").contentWindow.__mark === 1);
     flag(`demo ${tag}: reload reloads the demo only`, "demo reloaded, column kept", kept ? "demo reloaded, column kept" : "column reloaded", kept);
+
+    // Hover (POR-47): the bar's icons go to --accent.
+    const accentRgb = theme === "dark" ? "rgb(255, 175, 46)" : "rgb(255, 138, 0)";
+    for (const sel of [".demo-exit", ".demo-refresh"]) {
+      await p.hover(sel);
+      await settle(p);
+      const c = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).color, sel);
+      flag(`hover ${tag}: ${sel.slice(1)} goes to --accent`, accentRgb, c, c === accentRgb);
+    }
 
     // Focus stays in the dialog and the column: the page under it is inert.
     for (let i = 0; i < 4; i++) await p.keyboard.press("Tab");

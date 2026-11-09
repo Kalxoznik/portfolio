@@ -670,7 +670,10 @@ if (gl) {
 // The pill that stands in for the cursor over slides. One for the page; each
 // carousel says what it reads and where. It eases after the pointer, with
 // reduced motion it jumps. Near the window's edge it stays inside, so the
-// "← PREV" over a sliver of the previous slide can still be read.
+// "← PREV" over a sliver of the previous slide can still be read. The lightbox
+// uses the same pill (POR-47): its look is .cursor-label in styles.css, its
+// words are here.
+const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO", close: "CLOSE" };
 const fineHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 const cursorLabel = document.createElement("div");
 cursorLabel.className = "cursor-label";
@@ -723,39 +726,145 @@ function hideCursorLabel() {
 }
 
 // Lightbox: a modal <dialog>, so Esc and the inert page come with it. Every way
-// out goes through its close event. The slide's whole box is cloned; with a real
-// image it takes the largest file of the srcset, the box is now wider than 1x.
+// out goes through its close event. The slide's whole box is cloned; a real
+// image takes its data-full file, or else the largest of its srcset, and a
+// video plays muted on a loop. Browsing it (POR-47): the arrow buttons, ← / →,
+// a swipe, or a click on either half of the image; each step moves the
+// carousel underneath along and crossfades the image.
 const lightbox = document.querySelector(".lightbox");
 const lightboxClose = lightbox?.querySelector(".lightbox-close");
+const lightboxPrev = lightbox?.querySelector(".lightbox-prev");
+const lightboxNext = lightbox?.querySelector(".lightbox-next");
+const lightboxFigure = lightbox?.querySelector(".lightbox-figure");
 const lightboxMedia = lightbox?.querySelector(".lightbox-media");
-const lightboxCaption = lightbox?.querySelector(".lightbox-caption");
+const lightboxText = lightbox?.querySelector(".lightbox-text");
+const lightboxCounter = lightbox?.querySelector(".lightbox-counter");
+const LIGHTBOX_MS = 250;
 let lightboxSlides = [];
 let lightboxIndex = 0;
+let lightboxStep = null;
 let lightboxDone = null;
+let lightboxPointer = null;
+let swipeStart = null;
+let swiped = false;
 
-function showLightboxSlide(index) {
+function lightboxSource(media) {
+  return media.dataset.full
+    || media.getAttribute("srcset")?.split(",").pop().trim().split(/\s+/)[0]
+    || media.getAttribute("src");
+}
+
+// The figure stops at the file's own width, so it is never shown larger than
+// it is. A vector has no such width.
+function capToFile(box, media, src) {
+  if (/\.svg(?:[?#]|$)/i.test(src || "")) return;
+  const fit = () => {
+    const width = media.naturalWidth || media.videoWidth;
+    if (width && lightboxMedia.firstElementChild === box) lightboxFigure.style.maxWidth = `${width}px`;
+  };
+  if (media.naturalWidth) fit();
+  else media.addEventListener(media.tagName === "VIDEO" ? "loadedmetadata" : "load", fit, { once: true });
+}
+
+function preloadLightbox(index) {
+  const image = lightboxSlides[index]?.querySelector(".placeholder img");
+  if (image) new Image().src = lightboxSource(image);
+}
+
+// direction is the step that led here: the old image fades out that way while
+// the new one comes in. Opening and reduced motion swap at once.
+function showLightboxSlide(index, direction = 0) {
   lightboxIndex = index;
   const slide = lightboxSlides[index];
   const box = slide.querySelector(".placeholder").cloneNode(true);
-  const image = box.querySelector("img");
-  if (image) {
-    const largest = image.getAttribute("srcset")?.split(",").pop().trim().split(/\s+/)[0];
-    if (largest) image.setAttribute("src", largest);
-    image.removeAttribute("srcset");
-    image.removeAttribute("loading");
+  const media = box.querySelector("img, video");
+  lightboxFigure.style.removeProperty("max-width");
+  if (media) {
+    const src = lightboxSource(media);
+    if (src) media.setAttribute("src", src);
+    media.removeAttribute("srcset");
+    media.removeAttribute("loading");
+    if (media.tagName === "VIDEO") {
+      media.muted = true;
+      media.loop = true;
+      media.autoplay = true;
+      media.playsInline = true;
+    }
   }
-  lightboxMedia.replaceChildren(box);
-  lightboxCaption.replaceChildren(...[...slide.querySelector(".caption").children].map((part) => part.cloneNode(true)));
+
+  lightboxMedia.querySelectorAll(".is-leaving").forEach((el) => el.remove());
+  const old = lightboxMedia.firstElementChild;
+  lightboxMedia.prepend(box);
+  if (media) capToFile(box, media, media.getAttribute("src"));
+  if (old && direction && !motionMedia.matches) {
+    const options = { duration: LIGHTBOX_MS, easing: "ease" };
+    old.classList.add("is-leaving");
+    old.animate({ opacity: [1, 0], transform: ["none", `translateX(${-24 * direction}px)`] }, options)
+      .finished.then(() => old.remove(), () => {});
+    box.animate({ opacity: [0, 1], transform: [`translateX(${24 * direction}px)`, "none"] }, options);
+  } else {
+    old?.remove();
+  }
+  if (media?.tagName === "VIDEO") media.play()?.catch(() => {});
+
+  lightboxText.replaceChildren(...[...slide.querySelector(".caption").children].map((part) => part.cloneNode(true)));
+  lightboxCounter.textContent = `${index + 1} / ${lightboxSlides.length}`;
+  lightboxPrev.hidden = index === 0;
+  lightboxNext.hidden = index === lightboxSlides.length - 1;
+  preloadLightbox(index - 1);
+  preloadLightbox(index + 1);
 }
 
-function openLightbox(slides, index, done) {
+// A button that hides at the end hands the focus on to the other one.
+function stepLightbox(step) {
+  const next = lightboxIndex + step;
+  if (next < 0 || next >= lightboxSlides.length) return;
+  const focused = document.activeElement;
+  showLightboxSlide(next, step);
+  lightboxStep?.(lightboxSlides[next]);
+  if (focused?.hidden) {
+    const other = focused === lightboxNext ? lightboxPrev : lightboxNext;
+    (other.hidden ? lightboxClose : other).focus();
+  }
+  refreshLightboxCursor();
+}
+
+// What a click at this point does: the halves of the image step (with a fine
+// pointer, and where there is a slide that way), the buttons do their own
+// thing, anywhere else closes.
+function lightboxZone(x, y) {
+  const hit = document.elementFromPoint(x, y);
+  if (!hit || hit.closest(".lightbox-button")) return null;
+  const box = lightboxMedia.getBoundingClientRect();
+  if (x < box.left || x > box.right || y < box.top || y > box.bottom) return "close";
+  if (!fineHover.matches) return null;
+  const step = x < box.left + box.width / 2 ? -1 : 1;
+  const next = lightboxIndex + step;
+  if (next < 0 || next >= lightboxSlides.length) return null;
+  return step < 0 ? "prev" : "next";
+}
+
+// The same pill as over the carousel; it moves into the dialog, which sits in
+// the top layer over everything else.
+function refreshLightboxCursor() {
+  if (!lightboxPointer || !lightbox.open || !fineHover.matches) return;
+  const zone = lightboxZone(lightboxPointer.x, lightboxPointer.y);
+  lightbox.classList.toggle("has-cursor-label", !!zone);
+  if (zone) showCursorLabel(CURSOR_TEXT[zone], lightboxPointer.x, lightboxPointer.y);
+  else hideCursorLabel();
+}
+
+function openLightbox(slides, index, step, done) {
   if (!lightbox) return;
   lightboxSlides = slides;
+  lightboxStep = step;
   lightboxDone = done;
+  lightboxPointer = null;
   showLightboxSlide(index);
   const scrollbar = innerWidth - root.clientWidth;
   if (scrollbar > 0) root.style.paddingRight = `${scrollbar}px`;
   root.classList.add("is-lightbox-open");
+  lightbox.append(cursorLabel);
   lightbox.showModal();
   lightboxClose.focus();
 }
@@ -763,26 +872,74 @@ function openLightbox(slides, index, done) {
 lightbox?.addEventListener("close", () => {
   root.classList.remove("is-lightbox-open");
   root.style.removeProperty("padding-right");
+  hideCursorLabel();
+  lightbox.classList.remove("has-cursor-label");
+  document.body.append(cursorLabel);
+  // Takes a playing video with it.
+  lightboxMedia.replaceChildren();
   lightboxDone?.(lightboxSlides[lightboxIndex]);
 });
 
 lightboxClose?.addEventListener("click", () => lightbox.close());
+lightboxPrev?.addEventListener("click", () => stepLightbox(-1));
+lightboxNext?.addEventListener("click", () => stepLightbox(1));
 
 lightbox?.addEventListener("click", (event) => {
-  if (!event.target.closest(".lightbox-media, .lightbox-caption, .lightbox-close")) lightbox.close();
+  if (swiped) {
+    swiped = false;
+    return;
+  }
+  if (event.target.closest(".lightbox-button")) return;
+  const zone = lightboxZone(event.clientX, event.clientY);
+  if (zone === "close") lightbox.close();
+  else if (zone) stepLightbox(zone === "next" ? 1 : -1);
 });
 
-// On the document: a click on the image leaves the focus on the body.
+lightbox?.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") return;
+  lightboxPointer = { x: event.clientX, y: event.clientY };
+  refreshLightboxCursor();
+});
+
+lightbox?.addEventListener("pointerleave", () => {
+  lightboxPointer = null;
+  lightbox.classList.remove("has-cursor-label");
+  hideCursorLabel();
+});
+
+// A sideways swipe steps; the tap that may follow it does not close.
+lightbox?.addEventListener("pointerdown", (event) => {
+  swiped = false;
+  swipeStart = event.pointerType === "touch" ? { x: event.clientX, y: event.clientY } : null;
+});
+
+lightbox?.addEventListener("pointerup", (event) => {
+  if (!swipeStart || event.pointerType !== "touch") return;
+  const dx = event.clientX - swipeStart.x;
+  const dy = event.clientY - swipeStart.y;
+  swipeStart = null;
+  if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+  swiped = true;
+  stepLightbox(dx < 0 ? 1 : -1);
+});
+
+lightbox?.addEventListener("pointercancel", () => {
+  swipeStart = null;
+});
+
+// On the document: a click on the image leaves the focus on the body. Tab goes
+// round the buttons that show.
 document.addEventListener("keydown", (event) => {
   if (!lightbox?.open) return;
   if (event.key === "Tab") {
     event.preventDefault();
-    lightboxClose.focus();
+    const buttons = [lightboxClose, lightboxPrev, lightboxNext].filter((button) => !button.hidden);
+    const at = buttons.indexOf(document.activeElement);
+    const step = event.shiftKey ? -1 : 1;
+    buttons[at < 0 ? 0 : (at + step + buttons.length) % buttons.length].focus();
   } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
     event.preventDefault();
-    const step = event.key === "ArrowRight" ? 1 : -1;
-    const next = Math.min(lightboxSlides.length - 1, Math.max(0, lightboxIndex + step));
-    if (next !== lightboxIndex) showLightboxSlide(next);
+    stepLightbox(event.key === "ArrowRight" ? 1 : -1);
   }
 });
 
@@ -987,8 +1144,6 @@ if (demo && !embedded) {
   }
 }
 
-const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO" };
-
 document.querySelectorAll(".case").forEach((caseEl) => {
   const scroller = caseEl.querySelector(".carousel");
   const slides = [...caseEl.querySelectorAll(".slide")];
@@ -1118,7 +1273,8 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     } else {
       leaveCursor();
       const shown = slides.filter((item) => !item.hasAttribute("data-demo"));
-      openLightbox(shown, shown.indexOf(slide), (last) => {
+      const follow = (current) => scroller.scrollTo({ left: restingScrollLeft(current), behavior: "instant" });
+      openLightbox(shown, shown.indexOf(slide), follow, (last) => {
         if (slides[nearestIndex()] !== last) scroller.scrollTo({ left: restingScrollLeft(last), behavior: "auto" });
         last.focus({ preventScroll: true });
       });
