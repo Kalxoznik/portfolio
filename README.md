@@ -34,6 +34,22 @@ Plain HTML, CSS and JavaScript: open `index.html` straight from disk.
 3. **Caption.** The text goes in `.caption-text` under the image, and the same
    text goes in the image's `alt`. `.eyebrow` is the screen number.
 
-4. **New slide.** Copy a whole `<article class="slide">`. The dots under the
+4. **Big lightbox image (optional).** A click on the active slide opens it
+   in the lightbox, which shows the 2x file by default. For a sharper one, export
+   the screen once more at **2880 px wide** as WebP (`02@full.webp`) and name it in
+   `data-full` on the same `<img>`:
+
+   ```html
+   <img src="assets/cases/creative-vision/02.webp"
+        srcset="assets/cases/creative-vision/02.webp 1x, assets/cases/creative-vision/02@2x.webp 2x"
+        data-full="assets/cases/creative-vision/02@full.webp"
+        width="953" height="675" alt="…" loading="lazy" decoding="async" draggable="false">
+   ```
+
+   It loads only in the lightbox (and when a neighbouring slide is open there).
+   The lightbox fits it to the window and never shows a file larger than its own
+   width. A `<video>` in the box works the same way and plays there muted, on a loop.
+
+5. **New slide.** Copy a whole `<article class="slide">`. The dots under the
    carousel are built from the slides by `main.js`, so there is nothing else to
    add. A slide without an image keeps the placeholder spans.
