@@ -890,12 +890,18 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     });
   }
 
+  // The tolerance covers the nudge of up to 4px a press makes before it is a drag.
+  function hasArrived(slide) {
+    return Math.abs(scroller.scrollLeft - restingScrollLeft(slide)) <= 8;
+  }
+
   // A slide cut by the carousel's edge is a step towards it; a whole one opens.
+  // In mid-step nothing opens yet, even a slide that already shows whole.
   function slideZone(slide) {
     const box = slide.getBoundingClientRect();
     const view = scroller.getBoundingClientRect();
     const whole = box.left >= view.left - 1 && box.right <= view.right + 1;
-    if (whole || slide === slides[nearestIndex()]) return slide.hasAttribute("data-demo") ? "demo" : "zoom";
+    if (hasArrived(slide) || (whole && slides.some(hasArrived))) return slide.hasAttribute("data-demo") ? "demo" : "zoom";
     return box.left > view.left ? "next" : "prev";
   }
 

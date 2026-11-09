@@ -683,6 +683,22 @@ a {
   margin: auto;
 }
 
+/* A phone on its side: the height is what limits the image, so the padding and
+   the reserve shrink. The side padding keeps the image clear of the ×. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .lightbox {
+    padding: 12px 64px;
+  }
+
+  .lightbox-figure {
+    width: min(100%, calc((100dvh - 120px) * 953 / 675));
+  }
+
+  .lightbox-caption {
+    margin-top: 8px;
+  }
+}
+
 .lightbox .placeholder,
 .lightbox .placeholder img {
   cursor: default;

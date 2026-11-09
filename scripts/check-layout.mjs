@@ -1316,6 +1316,119 @@ try {
     await still.context().close();
   }
 
+  // A click in mid-step is still a step: nothing opens before the slide arrives.
+  // The press is real; every frame of the step records what the pill says.
+  for (const [width, height] of [[1920, 1080], [375, 812]]) {
+    const tag = `@${width}`;
+    const p = await openCarouselPage({ viewport: { width, height }, reducedMotion: "no-preference" });
+    const at = await p.evaluate(() => {
+      const c = document.querySelector(".carousel");
+      const slide = c.querySelectorAll(".slide")[1];
+      const pad = parseFloat(getComputedStyle(c).paddingLeft);
+      const r = slide.querySelector(".placeholder").getBoundingClientRect();
+      const end = Math.min(innerWidth, r.right);
+      return {
+        x: Math.min(r.left + 100, (r.left + end) / 2),
+        y: r.top + r.height / 2,
+        rest: Math.min(slide.offsetLeft - c.offsetLeft - pad, c.scrollWidth - c.clientWidth),
+      };
+    });
+    await p.mouse.move(at.x, at.y);
+    await settle(p);
+    await p.evaluate(() => {
+      const c = document.querySelector(".carousel");
+      const label = document.querySelector(".cursor-label");
+      window.__step = { frames: [], press: null };
+      c.addEventListener("pointerdown", () => { window.__step.press = c.scrollLeft; }, true);
+      const read = () => {
+        window.__step.frames.push({ left: c.scrollLeft, text: label.textContent });
+        requestAnimationFrame(read);
+      };
+      read();
+    });
+    await p.mouse.click(at.x, at.y);
+    await p.waitForFunction((half) => document.querySelector(".carousel").scrollLeft > half, at.rest / 2, { polling: "raf" });
+    await p.evaluate(() => { window.__step.press = null; });
+    await p.mouse.click(at.x, at.y);
+    const open = await lightboxState(p);
+    const press = await p.evaluate(() => window.__step.press);
+    flag(`mid-step ${tag}: second click lands in mid-step`, `${fmt(at.rest / 2)} < left < ${fmt(at.rest - 8)}`, fmt(press), press > at.rest / 2 && press < at.rest - 8);
+    flag(`mid-step ${tag}: second click opens nothing`, "closed", open.open ? "open" : "closed", !open.open);
+    await p.waitForTimeout(1200);
+    const steps = await p.evaluate(() => window.__step.frames);
+    const moving = steps.filter((f) => f.left > 0 && f.left < at.rest - 8);
+    const texts = [...new Set(moving.map((f) => f.text))].join(", ");
+    flag(`mid-step ${tag}: pill says NEXT all the way`, `NEXT → (> 5 frames)`, `${texts} (${moving.length} frames)`, moving.length > 5 && texts === "NEXT →");
+    flag(`mid-step ${tag}: carousel ends on that slide`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    num(`mid-step ${tag}: at rest on it`, at.rest, await p.evaluate(() => document.querySelector(".carousel").scrollLeft), 1);
+    flag(`mid-step ${tag}: nothing opened on arrival`, "closed", (await lightboxState(p)).open ? "open" : "closed", !(await lightboxState(p)).open);
+    await p.context().close();
+  }
+
+  // Sideways on a phone and in a short window: the height limits the image.
+  for (const [width, height] of [[812, 375], [667, 375], [568, 320], [1280, 480]]) {
+    const tag = `${width}x${height}`;
+    const p = await openCarouselPage({ viewport: { width, height }, reducedMotion: "reduce" });
+    await p.evaluate(() => document.querySelector(".carousel .slide").focus({ preventScroll: true }));
+    await p.keyboard.press("Enter");
+    const box = await p.evaluate(() => {
+      const dialog = document.querySelector(".lightbox");
+      const media = dialog.querySelector(".lightbox-media").getBoundingClientRect();
+      const close = dialog.querySelector(".lightbox-close").getBoundingClientRect();
+      const noOverlap = media.right <= close.left || media.left >= close.right || media.bottom <= close.top || media.top >= close.bottom;
+      dialog.scrollTop = dialog.scrollHeight;
+      return {
+        open: dialog.open,
+        width: media.width,
+        height: media.height,
+        left: media.left,
+        right: media.right,
+        noOverlap,
+        captionBottom: dialog.querySelector(".lightbox-caption").getBoundingClientRect().bottom,
+      };
+    });
+    flag(`lightbox ${tag}: opens`, "open", box.open ? "open" : "closed", box.open);
+    flag(`lightbox ${tag}: image at least 60% of the window height`, `≥ ${fmt(height * 0.6)}`, `${fmt(box.width)}x${fmt(box.height)}`, box.height >= height * 0.6);
+    flag(`lightbox ${tag}: image inside the window width`, `0 … ${width}`, `${fmt(box.left)} … ${fmt(box.right)}`, box.left >= 0 && box.right <= width);
+    flag(`lightbox ${tag}: caption can be reached`, `≤ ${height}`, fmt(box.captionBottom), box.captionBottom <= height);
+    flag(`lightbox ${tag}: × clear of the image`, "yes", box.noOverlap ? "yes" : "no", box.noOverlap);
+    await p.context().close();
+  }
+
+  // A scrollbar that takes up room, which Playwright's default browser hides:
+  // the page is padded by its width, so nothing moves when the lightbox opens.
+  {
+    const wide = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+    try {
+      const ctx = await wide.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, colorScheme: "dark", reducedMotion: "reduce" });
+      const p = await ctx.newPage();
+      await p.goto(url, { waitUntil: "load" });
+      const read = () => p.evaluate(() => ({
+        bar: innerWidth - document.documentElement.clientWidth,
+        logo: document.querySelector('[data-check="logo"]').getBoundingClientRect().left,
+        carouselRight: document.querySelector(".carousel").getBoundingClientRect().right,
+      }));
+      await p.evaluate(async () => {
+        await document.fonts.ready;
+        const top = document.querySelector(".carousel").getBoundingClientRect().top + scrollY;
+        window.scrollTo({ top: top - 160, behavior: "instant" });
+      });
+      await settle(p);
+      const shut = await read();
+      flag("scrollbar: takes up room in this browser", "> 0", shut.bar, shut.bar > 0);
+      await p.evaluate(() => document.querySelector(".carousel .slide").focus({ preventScroll: true }));
+      await p.keyboard.press("Enter");
+      await settle(p);
+      const opened = await read();
+      const padding = await p.evaluate(() => document.documentElement.style.paddingRight);
+      flag("scrollbar: page padded by its width", `${shut.bar}px`, padding, padding === `${shut.bar}px`);
+      num("scrollbar: logo stays put with the lightbox open", shut.logo, opened.logo, 0.5);
+      num("scrollbar: carousel's right edge stays put", shut.carouselRight, opened.carouselRight, 0.5);
+    } finally {
+      await wide.close();
+    }
+  }
+
   // Touch: no pill; a tap does what a click does.
   {
     const p = await openCarouselPage({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
