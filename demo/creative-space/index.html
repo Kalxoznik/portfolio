@@ -1,47 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script>
-      (function () {
-        var theme = "dark";
-        try {
-          var stored = localStorage.getItem("theme");
-          if (stored === "light" || stored === "dark") theme = stored;
-          else if (window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
-        } catch (e) {}
-        document.documentElement.setAttribute("data-theme", theme);
-        // The site's theme switch reaches this page too.
-        window.addEventListener("storage", function (event) {
-          if (event.key === "theme" && (event.newValue === "light" || event.newValue === "dark")) {
-            document.documentElement.setAttribute("data-theme", event.newValue);
-          }
-        });
-      })();
-    </script>
-    <title>Creative Space — Demo</title>
-    <meta name="robots" content="noindex">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../../styles.css">
-    <style>
-      /* A placeholder until the real demo: the site's colours, no dots. */
-      body {
-        display: grid;
-        place-items: center;
-        background-image: none;
-      }
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creative Space — demo</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<div class="app" id="app">
 
-      .demo-placeholder {
-        margin: 0;
-        color: var(--text-muted);
-        font-size: 16px;
-      }
-    </style>
-  </head>
-  <body>
-    <p class="demo-placeholder" data-check="demo-placeholder">Demo coming soon</p>
-  </body>
+  <!-- Sidebar (Figma: Sidebar 58:484) -->
+  <aside class="sidebar" aria-label="Workspace navigation">
+    <div class="brand">
+      <span class="brand-mark">CS</span>
+      <span class="brand-copy"><span class="brand-name">Creative&nbsp; Space</span><span class="brand-sub">Workspace</span></span>
+    </div>
+    <nav class="nav">
+      <span class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.39" y="3.83" width="11.41" height="9.42" rx="2.25" stroke="#706E69" stroke-width="1.5"/><rect x="9.68" y="6.4" width="1.85" height="3" rx=".92" fill="#706E69"/><rect x="4.67" y="6.4" width="1.85" height="3" rx=".92" fill="#706E69"/><rect x="7.17" y="1.11" width="1.85" height="3" rx=".92" fill="#706E69"/></svg>Agents</span>
+      <span class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.48 5.52H13.03V12.02C13.03 13.13 12.14 14.02 11.03 14.02H4.48C3.37 14.02 2.48 13.13 2.48 12.02V5.52Z" stroke="#706E69" stroke-width="1.5"/><line x1="6" y1="8.33" x2="9.51" y2="8.33" stroke="#706E69" stroke-width="1.5" stroke-linecap="round"/><rect x="1" y="1" width="13.51" height="4.52" rx="1" stroke="#706E69" stroke-width="1.5"/></svg>Archive</span>
+      <span class="nav-item"><img src="assets/settings.svg" width="16" height="16" alt="">Workspace settings</span>
+    </nav>
+    <p class="nav-title">Your boards</p>
+    <nav class="nav boards">
+      <span class="nav-item is-active"><img src="assets/grid-active.svg" width="16" height="16" alt="">Website design</span>
+      <span class="nav-item"><img src="assets/grid.svg" width="16" height="16" alt="">Match 3 UI</span>
+    </nav>
+  </aside>
+
+  <div class="workspace">
+    <!-- Top bar (Figma: Top bar 58:7) -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="crumbs">Workspace &nbsp;/&nbsp; Website design</span>
+        <span class="search"><img src="assets/search.svg" width="14" height="14" alt="">Search tasks</span>
+      </div>
+      <div class="topbar-right">
+        <span class="btn-create">+ Create</span>
+        <span class="avatar avatar-lg av-ms" title="Max (owner)">MS</span>
+      </div>
+    </header>
+
+    <div class="main">
+      <!-- Board (Figma: Kanban board 8:496) -->
+      <section class="board" id="board" aria-label="Kanban board">
+        <div class="column" data-col="backlog"><div class="col-head"><h2>Backlog</h2><span class="count"></span></div><div class="cards"></div></div>
+        <div class="column" data-col="ready"><div class="col-head"><h2>Ready</h2><span class="count"></span></div><div class="cards"></div></div>
+        <div class="column" data-col="progress"><div class="col-head"><h2>In progress</h2><span class="count"></span></div><div class="cards"></div></div>
+        <div class="column" data-col="review"><div class="col-head"><h2>Review</h2><span class="count"></span></div><div class="cards"></div></div>
+        <div class="column" data-col="done"><div class="col-head"><h2>Done</h2><span class="count"></span></div><div class="cards"></div></div>
+      </section>
+
+      <!-- Task details + chat (Figma: Security Review details 159:889) -->
+      <aside class="details" id="details" aria-label="Task details">
+        <div class="back"><img src="assets/arrow-left.svg" width="14" height="14" alt="">Back</div>
+        <div class="overview">
+          <div class="title-row">
+            <h3 id="d-title">Dark Mode Toggle</h3>
+            <span class="edit-btn"><img src="assets/edit.svg" width="24" height="24" alt=""></span>
+          </div>
+          <p id="d-desc">Add a light / dark theme toggle to the site header. Remember the visitor's choice and follow the system theme by default.</p>
+        </div>
+        <div class="chat">
+          <div class="chat-head">
+            <span class="chat-title">Task chat</span>
+            <span class="chat-meta" id="chat-people"><span class="avatar avatar-xs av-ms">MS</span><span id="chat-count">1 participant</span></span>
+          </div>
+          <div class="messages" id="messages" aria-live="polite">
+            <p class="empty" id="chat-empty">No messages yet. Move the card to <b>Ready</b> — the Architect picks it up.</p>
+          </div>
+          <div class="composer"><span>Add a message about this task…</span><img src="assets/send.svg" width="23" height="23" alt=""></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Demo chrome -->
+  <div class="ghost-cursor" id="ghost" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l15 9.5-6.6 1.3L9.2 20z" fill="#292826" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  <!-- Shown only when the demo is opened on its own (not inside the portfolio panel, which has its own Play/Pause) -->
+  <div class="standalone-ctrl" id="standalone" hidden>
+    <button type="button" id="sa-toggle" aria-label="Pause demo"></button>
+    <span id="sa-label">Playing</span>
+  </div>
+  <div class="finale" id="finale" hidden role="dialog" aria-labelledby="finale-title">
+    <div class="finale-box">
+      <p class="finale-kicker">That's the loop</p>
+      <p class="finale-title" id="finale-title">Agents do the work.<br>You make the calls.</p>
+      <button type="button" id="replay" class="btn-primary">Replay demo</button>
+    </div>
+  </div>
+</div>
+<script src="demo.js"></script>
+</body>
 </html>
