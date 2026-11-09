@@ -14,6 +14,7 @@
   --text-muted: #a99d7a;
   --accent: #ffaf2e;
   --accent-text: #ffaf2e;
+  --label-eyebrow: var(--text-primary);
   --surface-placeholder: #2c2b27;
   --dots: #44423c;
 
@@ -35,6 +36,7 @@
   --text-muted: #7a7054;
   --accent: #ff8a00;
   --accent-text: #ff8a00;
+  --label-eyebrow: var(--text-secondary);
   --surface-placeholder: #ece4ce;
   --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
 }
@@ -48,6 +50,7 @@
     --text-muted: #7a7054;
     --accent: #ff8a00;
     --accent-text: #ff8a00;
+    --label-eyebrow: var(--text-secondary);
     --surface-placeholder: #ece4ce;
     --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
   }
@@ -419,13 +422,12 @@ a {
 
 .case-meta dt {
   margin: 0;
-  color: var(--accent-text);
+  color: var(--text-primary);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 2px;
+  font-weight: 700;
+  letter-spacing: 0;
   line-height: 16px;
   text-transform: uppercase;
-  opacity: 0.9;
 }
 
 .case-meta dd {
@@ -548,10 +550,10 @@ a {
 }
 
 .eyebrow {
-  color: var(--accent-text);
+  color: var(--label-eyebrow);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 2px;
+  font-weight: 700;
+  letter-spacing: 0;
   line-height: 16px;
   text-transform: uppercase;
 }

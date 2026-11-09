@@ -139,6 +139,32 @@ function flag(name, expected, actual, ok) {
   rows.push([name, String(expected), String(actual), ok ? "OK" : "FAIL"]);
 }
 
+// Small uppercase labels (POR-44): ROLE/YEAR/PLATFORM and SCREEN 0X.
+function labelStyle(page) {
+  return page.evaluate(() => {
+    const st = (sel) => {
+      const c = getComputedStyle(document.querySelector(sel));
+      return { color: c.color, weight: c.fontWeight, spacing: c.letterSpacing, opacity: c.opacity, font: c.fontFamily };
+    };
+    return {
+      theme: document.documentElement.getAttribute("data-theme") || "dark",
+      meta: st(".case-meta dt"),
+      eyebrow: st(".eyebrow"),
+      boldLoaded: document.fonts.check("700 13px Inter"),
+    };
+  });
+}
+
+function labelRows(where, l, metaColour, eyebrowColour) {
+  flag(`${where}: case meta label colour`, metaColour, l.meta.color, l.meta.color === metaColour);
+  flag(`${where}: slide caption label colour`, eyebrowColour, l.eyebrow.color, l.eyebrow.color === eyebrowColour);
+  const style = `${l.meta.weight}/${l.meta.spacing}/${l.meta.opacity}, ${l.eyebrow.weight}/${l.eyebrow.spacing}/${l.eyebrow.opacity}`;
+  // letter-spacing: 0 serialises as "normal" in Chrome; both mean no tracking.
+  flag(`${where}: labels bold, no tracking, opacity 1`, "700/normal/1, 700/normal/1", style,
+    [l.meta, l.eyebrow].every((x) => x.weight === "700" && (x.spacing === "normal" || x.spacing === "0px") && x.opacity === "1"));
+  flag(`${where}: Inter 700 face loaded`, "true", l.boldLoaded, l.boldLoaded === true);
+}
+
 const server = await startServer();
 const url = `http://127.0.0.1:${server.address().port}/index.html`;
 const browser = await chromium.launch();
@@ -530,6 +556,7 @@ try {
   // Theme switch with motion on: the new theme grows as a circle from the
   // toggle's centre (clip-path on ::view-transition-new(root)), then the page
   // is in the new theme with nothing left over. Reduced motion: at once.
+  labelRows("dark theme", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   const circle = await page.evaluate(async () => {
     const root = document.documentElement;
@@ -557,13 +584,7 @@ try {
   flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
   flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
   flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
-  // Light theme: small labels use --accent-text, the same orange as --accent (POR-43).
-  const labels = await page.evaluate(() => ({
-    meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
-    eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
-  }));
-  flag("light theme: case meta label colour", "rgb(255, 138, 0)", labels.meta, labels.meta === "rgb(255, 138, 0)");
-  flag("light theme: slide caption label colour", "rgb(255, 138, 0)", labels.eyebrow, labels.eyebrow === "rgb(255, 138, 0)");
+  labelRows("light theme", await labelStyle(page), "rgb(43, 39, 34)", "rgb(62, 58, 50)");
   // A second click while the circle grows: the browser skips the first
   // transition, and its end must not lift the no-fade class from the second.
   const twice = await page.evaluate(async () => {
@@ -800,18 +821,15 @@ try {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const over375 = await page.evaluate(overflowX);
   flag("no horizontal scroll @375", "0", over375, over375 <= 0);
-  // Light theme at 375: the small labels are the accent orange too (POR-43).
-  const light375 = await page.evaluate(async () => {
+  // Light theme at 375: same label style and colours (POR-44).
+  await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    return {
-      theme: document.documentElement.getAttribute("data-theme"),
-      meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
-      eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
-    };
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
   });
-  flag("light theme @375: case meta label colour", "rgb(255, 138, 0)", `${light375.meta} (${light375.theme})`, light375.theme === "light" && light375.meta === "rgb(255, 138, 0)");
-  flag("light theme @375: slide caption label colour", "rgb(255, 138, 0)", `${light375.eyebrow} (${light375.theme})`, light375.theme === "light" && light375.eyebrow === "rgb(255, 138, 0)");
+  const light375 =await labelStyle(page);
+  flag("light theme @375: theme is light", "light", light375.theme, light375.theme === "light");
+  labelRows("light theme @375", light375, "rgb(43, 39, 34)", "rgb(62, 58, 50)");
   const dark375 = await page.evaluate(() => {
     document.querySelector(".theme-toggle").click();
     return document.documentElement.getAttribute("data-theme");
