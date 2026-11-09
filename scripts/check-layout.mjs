@@ -1774,6 +1774,18 @@ try {
     s = await demoState(p);
     flag("demo direct: Esc closes it, stays on the page", "closed, no hash, /index.html", `${s.open ? "open" : "closed"}, ${s.hash || "no hash"}, ${await p.evaluate(() => location.pathname)}`, !s.open && s.hash === "" && (await p.evaluate(() => location.pathname)) === "/index.html");
     num("demo direct: still on the case", 0, await p.evaluate(() => document.getElementById("creative-space").getBoundingClientRect().top), 1);
+    {
+      const b = await ctx.newPage();
+      await b.goto(`${url}#demo=creative-space`, { waitUntil: "load" });
+      await settle(b);
+      await b.goBack();
+      await settle(b);
+      const bs = await demoState(b);
+      const path = await b.evaluate(() => location.pathname);
+      const top = await b.evaluate(() => document.getElementById("creative-space").getBoundingClientRect().top);
+      flag("demo direct: Back closes it, stays on the page", "closed, no hash, /index.html, on the case", `${bs.open ? "open" : "closed"}, ${bs.hash || "no hash"}, ${path}, top ${Math.round(top)}`, !bs.open && bs.hash === "" && path === "/index.html" && Math.abs(top) <= 1);
+      await b.close();
+    }
     await p.goto(`${url.replace("index.html", "index.html?embed=column")}#demo=creative-space`, { waitUntil: "load" });
     await settle(p);
     s = await demoState(p);

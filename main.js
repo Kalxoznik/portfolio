@@ -974,11 +974,16 @@ if (demo && !embedded) {
 
   demoWide.addEventListener("change", loadDemoColumn);
 
-  // Opened from the address: the page waits on the case underneath.
+  // Opened from the address: the page waits on the case underneath, with an
+  // entry of its own below the demo's, so Back closes the demo, not the site.
+  // A reload keeps the entries it already has.
   const initialDemo = demoCaseEl(hashDemo());
   if (initialDemo) {
     window.scrollTo({ top: initialDemo.getBoundingClientRect().top + scrollY, behavior: "instant" });
-    startDemo(initialDemo.dataset.case, false);
+    if (startDemo(initialDemo.dataset.case, false) && !history.state?.demo) {
+      history.replaceState(null, "", location.pathname + location.search);
+      history.pushState({ demo: initialDemo.dataset.case }, "", `#demo=${initialDemo.dataset.case}`);
+    }
   }
 }
 
