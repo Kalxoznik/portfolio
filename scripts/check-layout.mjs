@@ -800,6 +800,29 @@ try {
     await caseHeadChecks(width);
   }
 
+  // Every carousel slide is one size (POR-42): 953×675 at 1920, the same
+  // 953:675 aspect at every narrower width, min(953, 86vw) below 1081.
+  for (const width of [1920, 1400, 1081, 1080, 721, 720, 375]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const sizes = await page.evaluate(() =>
+      [...document.querySelectorAll(".slide .placeholder")].map((el) => {
+        const r = el.getBoundingClientRect();
+        return [r.width, r.height];
+      })
+    );
+    const expectedW = width <= 1080 ? Math.min(953, width * 0.86) : 953;
+    const expectedH = (expectedW * 675) / 953;
+    flag(`slides: ${sizes.length} found @${width}`, "6", sizes.length, sizes.length === 6);
+    const allW = sizes.every(([w]) => Math.abs(w - expectedW) <= TOLERANCE);
+    const allH = sizes.every(([, h]) => Math.abs(h - expectedH) <= TOLERANCE);
+    flag(`slides all ${fmt(expectedW)} wide @${width}`, fmt(expectedW), [...new Set(sizes.map(([w]) => fmt(w)))].join(","), allW);
+    flag(`slides all ${fmt(expectedH)} high @${width}`, fmt(expectedH), [...new Set(sizes.map(([, h]) => fmt(h)))].join(","), allH);
+    if (width === 1920) flag("slides 953×675 @1920", "953×675", `${fmt(sizes[0]?.[0])}×${fmt(sizes[0]?.[1])}`, allW && allH && Math.abs(expectedH - 675) <= TOLERANCE);
+    const over = await page.evaluate(overflowX);
+    flag(`no horizontal scroll with slides @${width}`, "0", over, over <= 0);
+  }
+
   // Current item's halo (POR-25). Reduced motion: the still 6px shadow at 32%,
   // no ::after. Motion on: ::after grows from the 12px dot to 48px and fades,
   // forever; the shadow is gone. Frames are read by pausing the animation and

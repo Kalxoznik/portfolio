@@ -462,16 +462,8 @@ a {
 
 .slide {
   flex: none;
-  width: 660px;
-  scroll-snap-align: start;
-}
-
-.slide-wide {
   width: 953px;
-}
-
-.slide-wide .placeholder {
-  aspect-ratio: 953 / 675;
+  scroll-snap-align: start;
 }
 
 .placeholder {
@@ -480,7 +472,7 @@ a {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  aspect-ratio: 660 / 675;
+  aspect-ratio: 953 / 675;
   border-radius: 8px;
   background: var(--surface-placeholder);
   color: var(--text-muted);
@@ -1032,10 +1024,6 @@ a:focus-visible .roll-char > span {
   }
 
   .slide {
-    width: min(660px, 78vw);
-  }
-
-  .slide-wide {
     width: min(953px, 86vw);
   }
 }
