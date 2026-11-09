@@ -112,7 +112,7 @@ button.btn-create:hover { background: #d99c1c; }
 .divider { width: 1px; height: 12px; background: #d1d1d1; }
 .assignees { display: flex; }
 .assignees .avatar + .avatar { margin-left: -5px; }
-.card-actions { display: flex; gap: 6px; padding: 0 0 4px 6px; margin-top: -4px; font-size: 11px; font-weight: 700; color: var(--cw-secondary); }
+.card-actions { display: flex; align-items: center; gap: 6px; padding: 6px 0 4px 6px; font-size: 11px; font-weight: 700; line-height: 13px; color: var(--cw-secondary); }
 .card-actions button:hover { color: var(--cw-text); }
 .card-actions .sep { color: var(--cw-placeholder); font-weight: 400; }
 
@@ -239,3 +239,28 @@ button.btn-create:hover { background: #d99c1c; }
   .agent-badge .badge-text { max-width: 70px; }
 }
 .column { min-width: 180px; }
+
+/* archive: card + its actions as one block */
+#archive-cards { gap: 6px; }
+
+/* settings modal */
+.settings { width: 560px; max-height: min(640px, 90vh); overflow: hidden; }
+.settings-body { display: flex; min-height: 0; flex: 1; }
+.settings-tabs { width: 160px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 12px; background: #fafaf8; border-right: 1px solid var(--cw-border); }
+.stab { text-align: left; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--cw-secondary); }
+.stab:hover { background: rgba(255,255,255,.7); }
+.stab.is-on { background: #fff; color: var(--cw-text); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.settings-pane { flex: 1; min-width: 0; padding: 20px; overflow-y: auto; }
+.spane { display: flex; flex-direction: column; gap: 16px; }
+.spane[hidden] { display: none; }
+.profile-row { display: flex; align-items: center; gap: 12px; }
+.p-name { margin: 0; font-size: 13px; font-weight: 600; }
+.p-sub { margin: 2px 0 0; font-size: 11px; color: var(--cw-placeholder); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--cw-border); border-radius: 8px; cursor: pointer; }
+.toggle-row b { display: block; font-size: 13px; font-weight: 600; }
+.toggle-row small { display: block; margin-top: 2px; font-size: 11px; color: var(--cw-placeholder); }
+.toggle-row input { appearance: none; width: 32px; height: 18px; border-radius: 99px; background: #d9d6cf; position: relative; flex: none; cursor: pointer; transition: background .2s; }
+.toggle-row input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.toggle-row input:checked { background: var(--cw-accent); }
+.toggle-row input:checked::after { transform: translateX(14px); }
+.modal-foot.end { justify-content: flex-end; }

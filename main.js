@@ -1088,8 +1088,23 @@ function openDemo(caseId) {
 
 if (demo && !embedded) {
   demoExit.addEventListener("click", closeDemo);
-  demo.querySelector(".demo-refresh").addEventListener("click", () => {
-    loadFrame(demoFrame, demoUrl(demoCase.dataset.demo));
+  // The bar's play control drives the scripted demo: it sends "toggle" and shows
+  // whatever state the demo reports back (idle, playing, paused, ended).
+  const demoPlay = demo.querySelector(".demo-play");
+  const PLAY_LABELS = { idle: "Play demo", playing: "Pause demo", paused: "Resume demo", ended: "Replay demo" };
+  function setDemoPlay(state) {
+    if (!PLAY_LABELS[state]) return;
+    demoPlay.dataset.state = state;
+    demoPlay.setAttribute("aria-label", PLAY_LABELS[state]);
+  }
+  demoPlay.addEventListener("click", () => {
+    demoFrame.contentWindow.postMessage({ source: "cs-demo-host", type: "toggle" }, "*");
+  });
+  demoFrame.addEventListener("load", () => setDemoPlay("idle"));
+  window.addEventListener("message", (event) => {
+    if (event.source === demoFrame.contentWindow && event.data?.source === "cs-demo" && event.data.type === "state") {
+      setDemoPlay(event.data.state);
+    }
   });
 
   // Tab past either end comes back round: from the last edge to the column

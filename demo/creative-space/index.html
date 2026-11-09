@@ -23,7 +23,7 @@
       <button type="button" class="nav-item" data-nav="agents"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.39" y="3.83" width="11.41" height="9.42" rx="2.25" stroke="#706E69" stroke-width="1.5"/><rect x="9.68" y="6.4" width="1.85" height="3" rx=".92" fill="#706E69"/><rect x="4.67" y="6.4" width="1.85" height="3" rx=".92" fill="#706E69"/><rect x="7.17" y="1.11" width="1.85" height="3" rx=".92" fill="#706E69"/></svg>Agents</button>
       <button type="button" class="nav-item" data-nav="archive"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.48 5.52H13.03V12.02C13.03 13.13 12.14 14.02 11.03 14.02H4.48C3.37 14.02 2.48 13.13 2.48 12.02V5.52Z" stroke="#706E69" stroke-width="1.5"/><line x1="6" y1="8.33" x2="9.51" y2="8.33" stroke="#706E69" stroke-width="1.5" stroke-linecap="round"/><rect x="1" y="1" width="13.51" height="4.52" rx="1" stroke="#706E69" stroke-width="1.5"/></svg>Archive<svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="#706E69" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="archive-sub" id="archive-sub"></div>
-      <span class="nav-item is-static"><img src="assets/settings.svg" width="16" height="16" alt="">Workspace settings</span>
+      <button type="button" class="nav-item" data-nav="settings"><img src="assets/settings.svg" width="16" height="16" alt="">Workspace settings</button>
     </nav>
     <p class="nav-title">Your boards</p>
     <nav class="nav boards" id="boards"></nav>
@@ -129,6 +129,38 @@
         <span class="foot-right"><button type="button" class="btn-cancel" id="modal-cancel">Cancel</button><button type="submit" class="btn-primary" id="modal-submit">Create task</button></span>
       </div>
     </form>
+  </div>
+
+
+  <!-- Settings (as in the board's SettingsModal) -->
+  <div class="modal-wrap settings-wrap" id="settings" hidden>
+    <div class="modal settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal-head"><h2 id="settings-title">Settings</h2><button type="button" class="modal-close" data-close-settings aria-label="Close">×</button></div>
+      <div class="settings-body">
+        <nav class="settings-tabs">
+          <button type="button" class="stab is-on" data-stab="profile">Profile</button>
+          <button type="button" class="stab" data-stab="workspace">Workspace</button>
+          <button type="button" class="stab" data-stab="notifications">Notifications</button>
+        </nav>
+        <div class="settings-pane">
+          <div class="spane" data-pane="profile">
+            <div class="profile-row"><span class="avatar" style="width:40px;height:40px;font-size:12px;background:#fff3da;color:#f2a000">MS</span><div><p class="p-name">Max Shakurov</p><p class="p-sub">Avatar colors follow your initials</p></div></div>
+            <label class="field"><span>Display name</span><input value="Max Shakurov"></label>
+            <label class="field"><span>Handle</span><input value="max"></label>
+          </div>
+          <div class="spane" data-pane="workspace" hidden>
+            <label class="field"><span>Workspace name</span><input value="Workspace"></label>
+            <p class="field-note">Members, boards and chat history live in data/board.db next to the project.</p>
+          </div>
+          <div class="spane" data-pane="notifications" hidden>
+            <label class="toggle-row"><span><b>Telegram notifications and replies</b><small>Get pinged when a card needs you, answer right from Telegram</small></span><input type="checkbox"></label>
+            <label class="toggle-row"><span><b>Mention notifications</b><small>When someone tags you in task chat</small></span><input type="checkbox" checked></label>
+            <p class="field-note">macOS notifications work independently of Telegram.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot end"><span class="foot-right"><button type="button" class="btn-cancel" data-close-settings>Cancel</button><button type="button" class="btn-primary" data-close-settings>Save changes</button></span></div>
+    </div>
   </div>
 
   <!-- Demo chrome -->

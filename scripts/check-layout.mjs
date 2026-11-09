@@ -1489,9 +1489,9 @@ try {
       eyebrow: document.querySelector(".lightbox-caption .eyebrow").textContent,
     }));
     flag("motion on: crossfade done by 400ms", "1 box, 1, Screen 02", `${faded.boxes} box, ${faded.opacity}, ${faded.eyebrow}`, faded.boxes === 1 && faded.opacity === "1" && faded.eyebrow === "Screen 02");
-    const hovers = await p.evaluate(() => [".lightbox-close", ".lightbox-next", ".demo-exit", ".demo-refresh", ".demo-trigger"]
+    const hovers = await p.evaluate(() => [".lightbox-close", ".lightbox-next", ".demo-exit", ".demo-play", ".demo-trigger"]
       .map((sel) => `${sel.slice(1)} ${getComputedStyle(document.querySelector(sel)).transitionDuration.split(",")[0]}`).join(", "));
-    const want = "lightbox-close 0.15s, lightbox-next 0.15s, demo-exit 0.15s, demo-refresh 0.15s, demo-trigger 0.15s";
+    const want = "lightbox-close 0.15s, lightbox-next 0.15s, demo-exit 0.15s, demo-play 0.15s, demo-trigger 0.15s";
     flag("motion on: new controls fade their colour in 150ms", want, hovers, hovers === want);
     await p.context().close();
 
@@ -1685,7 +1685,7 @@ try {
         bar: box(".demo-bar"),
         pill: box(".demo-pill"),
         pillText: document.querySelector(".demo-pill").textContent,
-        refresh: box(".demo-refresh"),
+        play: box(".demo-play"),
         exit: box(".demo-exit"),
         dialog: `${document.querySelector(".demo-panel").getAttribute("role")} ${document.querySelector(".demo-panel").getAttribute("aria-modal")}`,
         exitLabel: document.querySelector(".demo-exit").getAttribute("aria-label"),
@@ -1760,7 +1760,7 @@ try {
     flag(`demo ${tag}: pill text`, "Demo version — some features are limited", s.pillText, s.pillText === "Demo version — some features are limited");
     num(`demo ${tag}: pill 784 wide`, 784, s.pill.width, 0.5);
     num(`demo ${tag}: pill centred in the panel`, (375 + 1920) / 2, s.pill.left + s.pill.width / 2, 1);
-    flag(`demo ${tag}: reload right of the pill, exit at the left`, "pill < reload, exit < pill", `${fmt(s.pill.right)} < ${fmt(s.refresh.left)}, ${fmt(s.exit.right)} < ${fmt(s.pill.left)}`, s.refresh.left > s.pill.right && s.exit.right < s.pill.left && s.exit.left < s.panel.left + 20);
+    flag(`demo ${tag}: play right of the pill, exit at the left`, "pill < play, exit < pill", `${fmt(s.pill.right)} < ${fmt(s.play.left)}, ${fmt(s.exit.right)} < ${fmt(s.pill.left)}`, s.play.left > s.pill.right && s.exit.right < s.pill.left && s.exit.left < s.panel.left + 20);
     flag(`demo ${tag}: a modal dialog, exit labelled`, "dialog true, Close demo", `${s.dialog}, ${s.exitLabel}`, s.dialog === "dialog true" && s.exitLabel === "Close demo");
     flag(`demo ${tag}: focus moves into the panel`, "inside", s.focusInPanel ? "inside" : "outside", s.focusInPanel);
     flag(`demo ${tag}: page scroll locked, page inert`, "hidden, inert", `${s.rootOverflow}, ${s.mainInert ? "inert" : "live"}`, s.rootOverflow === "hidden" && s.mainInert);
@@ -1776,8 +1776,7 @@ try {
       const w = document.querySelector(".demo-column").contentWindow;
       const d = w.document;
       const demoDoc = document.querySelector(".demo-frame").contentDocument;
-      const text = demoDoc.querySelector(".demo-placeholder");
-      const tr = text.getBoundingClientRect();
+      const board = demoDoc.querySelector(".app .board");
       return {
         width: w.innerWidth,
         mobile: getComputedStyle(d.querySelector(".menu-toggle")).display !== "none",
@@ -1785,21 +1784,17 @@ try {
         theme: d.documentElement.dataset.theme,
         caseTop: d.getElementById("creative-space").getBoundingClientRect().top,
         ownDemo: !d.querySelector(".demo").hidden,
-        demoText: text.textContent,
-        demoCentred: Math.abs(tr.left + tr.width / 2 - demoDoc.documentElement.clientWidth / 2) < 1 && Math.abs(tr.top + tr.height / 2 - demoDoc.documentElement.clientHeight / 2) < 1,
-        demoColour: getComputedStyle(text).color,
-        demoBg: getComputedStyle(demoDoc.body).backgroundColor,
-        muted: getComputedStyle(document.documentElement).getPropertyValue("--text-muted").trim(),
+        demoCards: board ? board.querySelectorAll(".card").length : 0,
+        demoOverflow: demoDoc.documentElement.scrollWidth - demoDoc.documentElement.clientWidth,
       };
     });
     flag(`demo ${tag}: column page is 375 wide, mobile header`, "375, menu button", `${inner.width}, ${inner.mobile ? "menu button" : "nav row"}`, inner.width === 375 && inner.mobile);
     flag(`demo ${tag}: column has no horizontal scroll`, "0", inner.overflow, inner.overflow <= 0);
     flag(`demo ${tag}: column in the same theme`, theme, inner.theme, inner.theme === theme);
     num(`demo ${tag}: column opens on the case, under its header`, 118, inner.caseTop, 3);
-    flag(`demo ${tag}: demo page says Demo coming soon, centred`, "Demo coming soon, centred", `${inner.demoText}, ${inner.demoCentred ? "centred" : "off centre"}`, inner.demoText === "Demo coming soon" && inner.demoCentred);
-    flag(`demo ${tag}: demo page in the theme's background`, s.pageBg, inner.demoBg, inner.demoBg === s.pageBg);
-    const mutedRgb = await p.evaluate((hex) => { const el = document.createElement("i"); el.style.color = hex; document.body.append(el); const c = getComputedStyle(el).color; el.remove(); return c; }, inner.muted);
-    flag(`demo ${tag}: demo text muted`, mutedRgb, inner.demoColour, inner.demoColour === mutedRgb);
+    // The scripted Creative Space demo (replaced the "Demo coming soon" page): the board renders, no sideways scroll.
+    flag(`demo ${tag}: demo board renders its cards`, "6 cards", `${inner.demoCards} cards`, inner.demoCards === 6);
+    flag(`demo ${tag}: demo has no horizontal scroll`, "0", inner.demoOverflow, inner.demoOverflow <= 0);
 
     // The column scrolls on its own; the page under it does not.
     const columnBefore = await p.evaluate(() => document.querySelector(".demo-column").contentWindow.scrollY);
@@ -1821,22 +1816,20 @@ try {
     flag(`demo ${tag}: column's Try the demo posts to the page`, '{"type":"demo-open","caseId":"creative-space"}', messages.join(" | ") || "nothing", messages.includes('{"type":"demo-open","caseId":"creative-space"}'));
     flag(`demo ${tag}: column never opens demo mode itself`, "closed", own || inner.ownDemo ? "open" : "closed", !own && !inner.ownDemo);
 
-    // Reload: only the demo frame loads again.
-    await p.evaluate(() => {
-      document.querySelector(".demo-frame").contentWindow.__mark = 1;
-      document.querySelector(".demo-column").contentWindow.__mark = 1;
-    });
-    await p.click(".demo-refresh");
-    await p.waitForFunction(() => {
-      const w = document.querySelector(".demo-frame").contentWindow;
-      return !w.__mark && w.document.readyState === "complete";
-    }, null, { polling: 50, timeout: 10000 });
-    const kept = await p.evaluate(() => document.querySelector(".demo-column").contentWindow.__mark === 1);
-    flag(`demo ${tag}: reload reloads the demo only`, "demo reloaded, column kept", kept ? "demo reloaded, column kept" : "column reloaded", kept);
+    // Play control (POR-48): it drives the demo and shows the state the demo reports.
+    await p.waitForFunction(() => document.querySelector(".demo-frame").contentWindow.document.readyState === "complete", null, { polling: 50, timeout: 10000 });
+    const playStates = [];
+    for (let i = 0; i < 2; i++) {
+      const before = await p.getAttribute(".demo-play", "data-state");
+      await p.click(".demo-play");
+      await p.waitForFunction((b) => document.querySelector(".demo-play").dataset.state !== b, before, { polling: 50, timeout: 5000 }).catch(() => {});
+      playStates.push(await p.getAttribute(".demo-play", "data-state"));
+    }
+    flag(`demo ${tag}: play control plays, then pauses`, "playing, paused", playStates.join(", "), playStates.join(", ") === "playing, paused");
 
     // Hover (POR-47): the bar's icons go to --accent.
     const accentRgb = theme === "dark" ? "rgb(255, 175, 46)" : "rgb(255, 138, 0)";
-    for (const sel of [".demo-exit", ".demo-refresh"]) {
+    for (const sel of [".demo-exit", ".demo-play"]) {
       await p.hover(sel);
       await settle(p);
       const c = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).color, sel);
@@ -1960,7 +1953,7 @@ try {
     num(`demo ${tag}: top bar 50px`, 50, s.bar.height, 0.5);
     const pillW = Math.min(784, width - 112);
     num(`demo ${tag}: pill shrinks to fit`, pillW, s.pill.width, 0.5);
-    flag(`demo ${tag}: bar buttons inside the window`, `0 … ${width}`, `${fmt(s.exit.left)} … ${fmt(s.refresh.right)}`, s.exit.left >= 0 && s.refresh.right <= width);
+    flag(`demo ${tag}: bar buttons inside the window`, `0 … ${width}`, `${fmt(s.exit.left)} … ${fmt(s.play.right)}`, s.exit.left >= 0 && s.play.right <= width);
     flag(`demo ${tag}: no horizontal scroll`, "0", s.overflowX, s.overflowX <= 0);
     await p.keyboard.press("Escape");
     await demoClosed(p);

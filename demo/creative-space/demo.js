@@ -170,6 +170,7 @@
   function liftCard(el) {
     const r = el.getBoundingClientRect();
     const lift = el.cloneNode(true);
+    lift.style.boxSizing = "border-box";
     lift.querySelector(".hint")?.remove();
     lift.classList.remove("is-selected");
     lift.classList.add("is-overlay");
@@ -359,6 +360,7 @@
       snapshot = null;
     }
     $("#modal").hidden = true;
+    $("#settings").hidden = true;
     showView({ name: "board", board: "web" });
     render();
     setState("playing");
@@ -375,6 +377,7 @@
     archive = ARCHIVE_INITIAL.map((c) => ({ ...c }));
     boards = [{ id: "web", name: "Website design" }];
     $("#modal").hidden = true;
+    $("#settings").hidden = true;
     state = "idle";
     showView({ name: "board", board: "web" });
     render();
@@ -397,7 +400,7 @@
     snapshot.boards = boards.map((b) => ({ ...b }));
   }
   board.addEventListener("pointerdown", (e) => {
-    const el = e.target.closest(".card");
+    let el = e.target.closest(".card");
     if (!el || e.button > 0) return;
     const id = el.dataset.id;
     const sx = e.clientX, sy = e.clientY;
@@ -408,6 +411,10 @@
         if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8) return;
         const isStartDrag = state === "idle" && id === TARGET;
         if (!isStartDrag) interfere();
+        // the board may have re-rendered since pointerdown (autoplay step or the pause itself):
+        // a detached node measures 0×0 and the overlay collapses into a strip
+        if (!el.isConnected) el = board.querySelector(`.card[data-id="${id}"]`);
+        if (!el) { onUp(); return; }
         el.querySelector(".hint")?.remove();
         drag = liftCard(el);
         dx = sx - drag.rect.left; dy = sy - drag.rect.top;
@@ -424,6 +431,7 @@
       if (!drag) return;
       drag.lift.remove();       // dropAnimation: null — the card is simply there
       el.classList.remove("is-dragging");
+      board.querySelector(`.card[data-id="${id}"]`)?.classList.remove("is-dragging");
       over?.classList.remove("is-over");
       const target = over?.dataset.col;
       if (target && target !== card(id).col) {
@@ -518,6 +526,7 @@
     else if (a) { interfere(); showView({ name: "archive", board: a.dataset.archive }); }
     else if (n && n.dataset.nav === "agents") { interfere(); showView({ name: "agents", board: view.board }); }
     else if (n && n.dataset.nav === "archive") { interfere(); showView({ name: "archive", board: view.board }); }
+    else if (n && n.dataset.nav === "settings") { interfere(); openSettings(); }
   });
   $("#archive-cards").addEventListener("click", (e) => {
     const r = e.target.closest("[data-restore]"), d = e.target.closest("[data-delete]");
@@ -529,6 +538,19 @@
     if (r) cards.push({ ...c, col: "done", agent: null, restored: true });
     render(); renderArchive();
   });
+
+  /* Settings (shell of the board's SettingsModal) */
+  const settings = $("#settings");
+  function openSettings() { settings.hidden = false; setTab("profile"); }
+  function closeSettings() { settings.hidden = true; }
+  function setTab(id) {
+    settings.querySelectorAll(".stab").forEach((t) => t.classList.toggle("is-on", t.dataset.stab === id));
+    settings.querySelectorAll(".spane").forEach((p) => (p.hidden = p.dataset.pane !== id));
+  }
+  settings.querySelectorAll(".stab").forEach((t) => t.addEventListener("click", () => setTab(t.dataset.stab)));
+  settings.querySelectorAll("[data-close-settings]").forEach((b) => b.addEventListener("click", closeSettings));
+  settings.addEventListener("click", (e) => { if (e.target === settings) closeSettings(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !settings.hidden) closeSettings(); });
 
   /* Create task / board (Figma: Create task modal 16:4) */
   const modal = $("#modal"), form = $("#modal-form");

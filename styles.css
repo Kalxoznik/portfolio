@@ -972,11 +972,24 @@ a {
   transform: translateY(-50%);
 }
 
-.demo-refresh {
+.demo-play {
   position: absolute;
   top: 50%;
   left: calc(100% + 8px);
   transform: translateY(-50%);
+}
+
+/* One control for the scripted demo (POR-48): play, pause while it runs, play again after
+   the visitor steps in, replay at the end. The demo reports its state over postMessage. */
+.demo-play svg {
+  display: none;
+}
+
+.demo-play[data-state="idle"] .i-play,
+.demo-play[data-state="paused"] .i-play,
+.demo-play[data-state="playing"] .i-pause,
+.demo-play[data-state="ended"] .i-replay {
+  display: block;
 }
 
 .demo-frame {
