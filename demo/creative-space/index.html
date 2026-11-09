@@ -82,7 +82,7 @@
 
       <!-- Task details + chat (Figma: Security Review details 159:889) -->
       <aside class="details" id="details" aria-label="Task details">
-        <div class="back"><img src="assets/arrow-left.svg" width="14" height="14" alt="">Back</div>
+        <button type="button" class="back" id="d-back"><img src="assets/arrow-left.svg" width="14" height="14" alt="">Back</button>
         <div class="overview">
           <div class="title-row">
             <h3 id="d-title">Dark Mode Toggle</h3>
@@ -96,7 +96,8 @@
             <span class="chat-meta"><span class="chat-avatars" id="chat-avatars"></span><span id="chat-count">1 participants</span></span>
           </div>
           <div class="messages" id="messages" aria-live="polite"></div>
-          <div class="composer"><span>Add a message about this task…</span><img src="assets/send.svg" width="23" height="23" alt=""></div>
+          <div class="messages" id="messages-other" hidden></div>
+          <form class="composer" id="composer" autocomplete="off"><textarea id="composer-input" maxlength="400" placeholder="Add a message about this task…" aria-label="Message"></textarea><button type="submit" class="send" id="send" disabled aria-label="Send"><img src="assets/send.svg" width="23" height="23" alt=""></button></form>
         </div>
       </aside>
     </div>
@@ -165,11 +166,6 @@
 
   <!-- Demo chrome -->
   <div class="ghost-cursor" id="ghost" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l15 9.5-6.6 1.3L9.2 20z" fill="#292826" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
-  <!-- Shown only when the demo is opened on its own (inside the portfolio the panel has the Play/Pause button) -->
-  <div class="standalone-ctrl" id="standalone" hidden>
-    <button type="button" id="sa-toggle" aria-label="Play demo"></button>
-    <span id="sa-label">Play</span>
-  </div>
 </div>
 <script src="demo.js"></script>
 </body>

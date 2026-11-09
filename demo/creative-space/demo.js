@@ -5,10 +5,10 @@
  * "Architect · thinking" / "Coder · working" badge with a pulsing dot, chat messages
  * that simply appear.
  *
- * One control drives it (the portfolio demo panel's button, or a floating
- * button when this page is opened on its own):
- *   idle    ▶  waiting; starts by itself after AUTOSTART_MS, or on click,
- *              or when the visitor drags the hinted card to Ready
+ * One control drives it: the play button in the portfolio's demo panel bar
+ * (opened on its own, the page just plays):
+ *   idle    ▶  only for a moment: the scenario starts by itself after
+ *              AUTOSTART_MS (time for the demo panel to slide in)
  *   playing ⏸  the scenario runs; click = pause
  *   paused  ▶  the visitor dragged cards or clicked pause; click = put the
  *              board back the way it was and continue the scenario
@@ -21,7 +21,7 @@
 (() => {
   "use strict";
 
-  const AUTOSTART_MS = 8000;    // idle → autoplay
+  const AUTOSTART_MS = 900;     // idle → autoplay, once the panel has slid in
   const AUTO_APPROVE_MS = 8000; // "ship it?" → autoplay presses Approve
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const embedded = window.parent !== window;
@@ -52,6 +52,9 @@
   let snapshot = null;        // the board before the visitor interfered
   let autostartTimer = 0;
   let pendingChoice = null;
+  let selected = TARGET;      // the card open in the details panel (click a card to switch)
+  let targetPeople = ["ms"];  // the scenario card's chat participants
+  let typed = {};             // messages the visitor wrote, per card (local only, nobody answers)
 
   const $ = (s, r = document) => r.querySelector(s);
   const board = $("#board");
@@ -71,15 +74,15 @@
   }
   function stats(c) {
     const parts = [];
-    if (c.comments) parts.push(`<span class="stat"><span class="ico-comment"></span>${c.comments}</span>`);
+    if (c.comments) parts.push(`<span class="stat"><img src="assets/comment.svg" width="13" height="13" alt="">${c.comments}</span>`);
     if (c.comments && c.files) parts.push(`<span class="divider"></span>`);
-    if (c.files) parts.push(`<span class="stat"><span class="ico-attach"></span>${c.files}</span>`);
+    if (c.files) parts.push(`<span class="stat"><img src="assets/paperclip.svg" width="13" height="13" alt="">${c.files}</span>`);
     if (parts.length) parts.push(`<span class="divider"></span>`);
     return parts.join("");
   }
   function cardEl(c) {
     const el = document.createElement("article");
-    el.className = "card" + (c.id === TARGET ? " is-selected" : "");
+    el.className = "card" + (c.id === selected ? " is-selected" : "");
     el.dataset.id = c.id;
     el.innerHTML = `
       <div class="card-head"><p class="card-title">${c.title}</p><span class="card-ref">${c.ref}</span></div>
@@ -88,7 +91,6 @@
         <span class="meta-left">${badge(c)}</span>
         <span class="meta-right">${stats(c)}<span class="assignees">${c.people.map((p) => avatar(p)).join("")}</span></span>
       </div>`;
-    if (c.id === TARGET && state === "idle") el.insertAdjacentHTML("beforeend", `<span class="hint">Drag me to Ready</span>`);
     return el;
   }
   function render() {
@@ -132,17 +134,111 @@
     scrollChat();
     return row;
   }
+  function renderPeople(keys) {
+    $("#chat-avatars").innerHTML = keys.map((k) => `<span data-p="${k}" class="ring">${avatar(k, 22)}</span>`).join("");
+    $("#chat-count").textContent = `${keys.length} participants`;
+  }
   function addParticipant(key) {
-    const meta = $("#chat-avatars");
-    if (meta.querySelector(`[data-p="${key}"]`)) return;
-    meta.insertAdjacentHTML("beforeend", `<span data-p="${key}" class="ring">${avatar(key, 22)}</span>`);
-    $("#chat-count").textContent = `${meta.children.length} participants`;
+    if (targetPeople.includes(key)) return;
+    targetPeople.push(key);
+    if (selected === TARGET) renderPeople(targetPeople);
   }
   function resetChat() {
     messages.innerHTML = `<p class="empty" id="chat-empty">No messages yet for this task. Move it to Ready — the Architect picks it up.</p>`;
-    $("#chat-avatars").innerHTML = `<span data-p="ms" class="ring">${avatar("ms", 22)}</span>`;
-    $("#chat-count").textContent = "1 participants";
+    targetPeople = ["ms"];
+    typed = {};
+    if (input) { input.value = ""; syncSend(); }
+    select(TARGET);
   }
+
+  /* ---------- details panel: click a card to open it (like the board) ---------- */
+  const TARGET_DESC = "Add a light / dark theme toggle to the site header. Remember the visitor's choice and follow the system theme by default.";
+  /* Finished history for the other cards — what their chats already hold */
+  const HISTORY = {
+    nav: [
+      ["sys", "Moved to Ready — Architect (Claude) sorts the queue"],
+      ["ac", `Brief for <span class="mention">@coder</span>: group the menu into Work, About, Contact; keep it to one row on desktop.`],
+      ["cd", "Done: three groups, one row from 1024px, the burger below it."],
+      ["sys", "Board Claude finished the work — Architect (Claude) reviews it here"],
+      ["ac", `Matches the brief. <span class="mention">@max</span> — have a look when you can.`],
+    ],
+    img: [
+      ["ac", `Brief for <span class="mention">@coder</span>: WebP with a JPEG fallback, lazy-load below the fold.`],
+      ["cd", "Done. Largest image 1.2 MB → 180 KB, LCP 2.9s → 1.6s ✓"],
+      ["ms", "Approved — ship it."],
+      ["sys", "Max Shakurov approved — moved to Done"],
+    ],
+    type: [
+      ["ac", `Brief for <span class="mention">@coder</span>: Inter for body, one display face for headings, a 4-step scale.`],
+      ["ms", "Approved — ship it."],
+      ["sys", "Max Shakurov approved — moved to Done"],
+    ],
+  };
+  const other = $("#messages-other");
+  function select(id) {
+    const c = card(id);
+    if (!c) return;
+    selected = id;
+    const isTarget = id === TARGET;
+    $("#d-title").textContent = c.title;
+    $("#d-desc").textContent = isTarget ? TARGET_DESC : c.desc;
+    messages.hidden = !isTarget;
+    other.hidden = isTarget;
+    if (isTarget) {
+      renderPeople(targetPeople);
+      scrollChat();
+    } else {
+      const items = [...(HISTORY[id] || []), ...(typed[id] || []).map((t) => ["you", t])];
+      other.innerHTML = items.length
+        ? items.map(([who, html]) => who === "you" ? mine(html).outerHTML : who === "sys"
+          ? `<p class="sys">${html}</p>`
+          : `<div class="msg">${avatar(who, 24)}<div class="stack"><div class="bubble">${html}</div><span class="stamp">${PEOPLE[who].name}</span></div></div>`).join("")
+        : `<p class="empty">No messages yet for this task.</p>`;
+      renderPeople(c.people);
+      other.scrollTop = other.scrollHeight;
+    }
+    render();
+  }
+  $("#d-back").addEventListener("click", () => select(TARGET));
+
+  /* ---------- composer: the visitor can write, the message lands, nobody reacts ----------
+     Text only (textContent, never HTML), kept in this tab's memory and gone on reload. */
+  const composer = $("#composer"), input = $("#composer-input"), send = $("#send");
+  function mine(text) {
+    const row = document.createElement("div");
+    row.className = "msg";
+    row.innerHTML = `${avatar("ms", 24)}<div class="stack"><div class="bubble"></div><span class="stamp">${PEOPLE.ms.name} · ${stamp()}</span></div>`;
+    row.querySelector(".bubble").textContent = text;
+    return row;
+  }
+  function syncSend() {
+    const on = input.value.trim().length > 0;
+    send.disabled = !on;
+    send.querySelector("img").src = on ? "assets/send-active.svg" : "assets/send.svg";
+  }
+  input.addEventListener("input", syncSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); composer.requestSubmit(); }
+  });
+  composer.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    if (selected === TARGET) {
+      clearEmpty();
+      messages.append(mine(text));
+      scrollChat();
+    } else {
+      (typed[selected] ||= []).push(text);
+      other.querySelector(".empty")?.remove();
+      other.append(mine(text));
+      other.scrollTop = other.scrollHeight;
+    }
+    card(selected).comments += 1;
+    render();
+    input.value = "";
+    syncSend();
+  });
 
   /* ---------- timing that respects pause / restart ---------- */
   function wait(ms, token) {
@@ -171,6 +267,10 @@
     const r = el.getBoundingClientRect();
     const lift = el.cloneNode(true);
     lift.style.boxSizing = "border-box";
+    // Outside its column the clone escapes the column's container queries, and stats a narrow
+    // column hides (comments, attachments) would pop back in: drop whatever the original hides.
+    const src = el.querySelectorAll("*"), dst = lift.querySelectorAll("*");
+    for (let i = src.length - 1; i >= 0; i--) if (getComputedStyle(src[i]).display === "none") dst[i].remove();
     lift.querySelector(".hint")?.remove();
     lift.classList.remove("is-selected");
     lift.classList.add("is-overlay");
@@ -297,7 +397,13 @@
         pendingChoice = null;
         resolve(value);
       };
-      buttons.forEach((b) => b.addEventListener("click", () => { if (!b.disabled) { ghostHide(); finish(b.dataset.choice, b); } }));
+      buttons.forEach((b) => b.addEventListener("click", () => {
+        if (b.disabled) return;
+        ghostHide();
+        finish(b.dataset.choice, b);
+        // the owner answered: that is the go-ahead, so a paused demo carries on
+        if (state === "paused") resume();
+      }));
       pendingChoice = true;
       const tick = async (now) => {
         if (token !== runToken) { pendingChoice = null; return reject(new Error("restart")); }
@@ -307,6 +413,7 @@
         if (left <= 0 && !auto) {
           auto = true;
           const approve = row.querySelector('[data-choice="approve"]');
+          if (selected !== TARGET) select(TARGET);
           try {
             const [x, y] = center(approve);
             await ghostTo(x, y, 900, token);
@@ -341,13 +448,11 @@
   function setState(next) {
     state = next;
     if (embedded) parent.postMessage({ source: "cs-demo", type: "state", state }, "*");
-    updateStandalone();
   }
   function start() {
     clearTimeout(autostartTimer);
     if (state !== "idle") return;
     setState("playing");
-    render(); // drops the hint
     runScenario(runToken);
   }
   function pause() { if (state === "playing") setState("paused"); }
@@ -362,7 +467,7 @@
     $("#modal").hidden = true;
     $("#settings").hidden = true;
     showView({ name: "board", board: "web" });
-    render();
+    select(TARGET);
     setState("playing");
   }
   function restart() {
@@ -428,7 +533,7 @@
       removeEventListener("pointermove", onMove);
       removeEventListener("pointerup", onUp);
       removeEventListener("pointercancel", onUp);
-      if (!drag) return;
+      if (!drag) { select(id); return; }
       drag.lift.remove();       // dropAnimation: null — the card is simply there
       el.classList.remove("is-dragging");
       board.querySelector(`.card[data-id="${id}"]`)?.classList.remove("is-dragging");
@@ -477,7 +582,7 @@
   function renderNav() {
     $("#boards").innerHTML = boards.map((b) => {
       const on = (view.name === "board" || view.name === "newboard") && view.board === b.id;
-      return `<button type="button" class="nav-item${on ? " is-active" : ""}" data-board="${b.id}"><img src="assets/${on ? "grid-active" : "grid"}.svg" width="16" height="16" alt="">${b.name}</button>`;
+      return `<button type="button" class="nav-item${on ? " is-active" : ""}" data-board="${b.id}"><img src="assets/${on ? "grid-active" : "grid"}.svg?v=2" width="16" height="16" alt="">${b.name}</button>`;
     }).join("");
     const archOpen = view.name === "archive";
     $('[data-nav="archive"]').classList.toggle("is-open", archOpen);
@@ -589,7 +694,7 @@
     }
   });
 
-  /* ---------- host messages / standalone control ---------- */
+  /* ---------- host messages ---------- */
   addEventListener("message", (e) => {
     const m = e.data;
     if (!m || m.source !== "cs-demo-host") return;
@@ -599,22 +704,6 @@
     else if (m.type === "restart") restart();
   });
 
-  const ICONS = {
-    play: `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="#fff"/></svg>`,
-    pause: `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="2.6" height="9" rx=".8" fill="#fff"/><rect x="7.4" y="1.5" width="2.6" height="9" rx=".8" fill="#fff"/></svg>`,
-    replay: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8c2.24 0 4.38.89 5.99 2.44L20 8.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4v4.5h-4.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  };
-  function updateStandalone() {
-    if (embedded) return;
-    const box = $("#standalone"), btn = $("#sa-toggle"), label = $("#sa-label");
-    box.hidden = false;
-    const map = { idle: ["play", "Play demo", "Play"], playing: ["pause", "Pause demo", "Playing"], paused: ["play", "Resume demo", "Paused"], ended: ["replay", "Replay demo", "Replay"] };
-    const [icon, aria, text] = map[state];
-    btn.innerHTML = ICONS[icon];
-    btn.setAttribute("aria-label", aria);
-    label.textContent = text;
-  }
-  $("#sa-toggle").addEventListener("click", toggle);
 
   renderAgents();
   restart();

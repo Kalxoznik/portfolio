@@ -107,8 +107,6 @@ button.btn-create:hover { background: #d99c1c; }
 .pulse { animation: cw-pulse 1.4s ease-in-out infinite; }
 @keyframes cw-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.75); } }
 .stat { display: flex; align-items: center; gap: 3px; height: 22px; font-size: 11px; font-weight: 500; color: #666; }
-.ico-comment { width: 14px; height: 13px; border: 1.5px solid #666; border-radius: 3px; }
-.ico-attach { width: 13px; height: 13px; border: 1.5px solid #666; border-radius: 50%; }
 .divider { width: 1px; height: 12px; background: #d1d1d1; }
 .assignees { display: flex; }
 .assignees .avatar + .avatar { margin-left: -5px; }
@@ -144,7 +142,7 @@ button.btn-create:hover { background: #d99c1c; }
 
 /* ---------- details + chat ---------- */
 .details { width: 290px; flex: none; background: #fff; border-left: 1px solid var(--cw-border); box-shadow: -2px 0 8px rgba(0,0,0,.08); display: flex; flex-direction: column; min-height: 0; }
-.back { height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 12px; color: var(--cw-secondary); border-bottom: 1px solid var(--cw-border); }
+.back { width: 100%; text-align: left; background: none; border-width: 0 0 1px; height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 12px; color: var(--cw-secondary); border-bottom: 1px solid var(--cw-border); }
 .overview { padding: 16px; border-bottom: 1px solid var(--cw-border); flex: none; }
 .title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .title-row h3 { margin: 0; font-size: 18px; font-weight: 700; }
@@ -171,10 +169,16 @@ button.btn-create:hover { background: #d99c1c; }
 .choice.primary { background: var(--cw-accent); border-color: var(--cw-accent); color: #fff; }
 .choice:not(:disabled):hover { border-color: var(--cw-accent); }
 .choice.primary:not(:disabled):hover { background: #d99c1c; }
-.choice:disabled { opacity: .45; cursor: default; }
-.choice.is-chosen { opacity: 1; }
+/* answered: Approve goes inactive in the colours of the composer's disabled send button;
+   Request changes keeps its look, it just stops responding */
+.choice:disabled { cursor: default; }
+.choice.primary:disabled { background: #e4e2de; border-color: #e4e2de; color: #a4a19a; }
 .composer { flex: none; height: 98px; border: 1px solid var(--cw-border); border-radius: 6px; padding: 9px 10px; font-size: 11px; color: var(--cw-placeholder); position: relative; }
-.composer img { position: absolute; right: 6px; bottom: 6px; }
+.composer textarea { width: 100%; height: 100%; padding: 0 22px 0 0; border: 0; outline: 0; resize: none; background: transparent; font: inherit; font-size: 11px; line-height: 1.35; color: var(--cw-text); }
+.composer textarea::placeholder { color: var(--cw-placeholder); }
+.composer:focus-within { border-color: var(--cw-accent); }
+.composer .send { position: absolute; right: 6px; bottom: 6px; display: flex; padding: 0; background: none; border: 0; }
+.composer .send:disabled { cursor: default; }
 
 /* ---------- create modal (Figma 16:4) ---------- */
 .modal-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(41, 40, 38, .3); display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
@@ -212,10 +216,6 @@ button.btn-create:hover { background: #d99c1c; }
 .ghost-cursor.is-on { opacity: 1; }
 .ghost-cursor.is-down svg { transform: scale(.88); transform-origin: 4px 2px; }
 
-/* ---------- standalone control (not used inside the portfolio panel) ---------- */
-.standalone-ctrl { position: fixed; right: 16px; bottom: 16px; z-index: 80; display: flex; align-items: center; gap: 8px; background: var(--cw-text); color: #fff; padding: 6px 12px 6px 6px; border-radius: 99px; font-size: 12px; font-weight: 600; box-shadow: 0 6px 16px rgba(0,0,0,.2); }
-.standalone-ctrl[hidden] { display: none; }
-.standalone-ctrl button { width: 28px; height: 28px; border-radius: 50%; background: var(--cw-accent); display: flex; align-items: center; justify-content: center; }
 
 /* ---------- smaller frames (the portfolio panel on laptops) ---------- */
 @media (max-width: 1500px) { .sidebar { width: 196px; } .search { width: 180px; } }
@@ -264,3 +264,6 @@ button.btn-create:hover { background: #d99c1c; }
 .toggle-row input:checked { background: var(--cw-accent); }
 .toggle-row input:checked::after { transform: translateX(14px); }
 .modal-foot.end { justify-content: flex-end; }
+
+.messages[hidden] { display: none; }
+.back:hover { color: var(--cw-text); }
