@@ -659,6 +659,132 @@ if (gl) {
   window.addEventListener("resize", rebuild);
 }
 
+// The pill that stands in for the cursor over slides. One for the page; each
+// carousel says what it reads and where. It eases after the pointer, with
+// reduced motion it jumps. Near the window's edge it stays inside, so the
+// "← PREV" over a sliver of the previous slide can still be read.
+const fineHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+const cursorLabel = document.createElement("div");
+cursorLabel.className = "cursor-label";
+cursorLabel.setAttribute("aria-hidden", "true");
+document.body.appendChild(cursorLabel);
+let cursorX = 0;
+let cursorY = 0;
+let cursorTargetX = 0;
+let cursorTargetY = 0;
+let cursorFrame = 0;
+
+function drawCursorLabel() {
+  cursorLabel.style.transform = `translate(${cursorX}px, ${cursorY}px) translate(-50%, -50%)`;
+}
+
+function easeCursorLabel() {
+  cursorX += (cursorTargetX - cursorX) * 0.25;
+  cursorY += (cursorTargetY - cursorY) * 0.25;
+  if (Math.abs(cursorTargetX - cursorX) < 0.1 && Math.abs(cursorTargetY - cursorY) < 0.1) {
+    cursorX = cursorTargetX;
+    cursorY = cursorTargetY;
+    cursorFrame = 0;
+  } else {
+    cursorFrame = requestAnimationFrame(easeCursorLabel);
+  }
+  drawCursorLabel();
+}
+
+function showCursorLabel(text, x, y) {
+  if (cursorLabel.textContent !== text) cursorLabel.textContent = text;
+  const half = cursorLabel.offsetWidth / 2;
+  cursorTargetX = Math.min(Math.max(x, half + 4), innerWidth - half - 4);
+  cursorTargetY = y;
+  if (!cursorLabel.classList.contains("is-visible") || motionMedia.matches) {
+    cancelAnimationFrame(cursorFrame);
+    cursorFrame = 0;
+    cursorX = cursorTargetX;
+    cursorY = cursorTargetY;
+    drawCursorLabel();
+    cursorLabel.classList.add("is-visible");
+  } else if (!cursorFrame) {
+    cursorFrame = requestAnimationFrame(easeCursorLabel);
+  }
+}
+
+function hideCursorLabel() {
+  cancelAnimationFrame(cursorFrame);
+  cursorFrame = 0;
+  cursorLabel.classList.remove("is-visible");
+}
+
+// Lightbox: a modal <dialog>, so Esc and the inert page come with it. Every way
+// out goes through its close event. The slide's whole box is cloned; with a real
+// image it takes the largest file of the srcset, the box is now wider than 1x.
+const lightbox = document.querySelector(".lightbox");
+const lightboxClose = lightbox?.querySelector(".lightbox-close");
+const lightboxMedia = lightbox?.querySelector(".lightbox-media");
+const lightboxCaption = lightbox?.querySelector(".lightbox-caption");
+let lightboxSlides = [];
+let lightboxIndex = 0;
+let lightboxDone = null;
+
+function showLightboxSlide(index) {
+  lightboxIndex = index;
+  const slide = lightboxSlides[index];
+  const box = slide.querySelector(".placeholder").cloneNode(true);
+  const image = box.querySelector("img");
+  if (image) {
+    const largest = image.getAttribute("srcset")?.split(",").pop().trim().split(/\s+/)[0];
+    if (largest) image.setAttribute("src", largest);
+    image.removeAttribute("srcset");
+    image.removeAttribute("loading");
+  }
+  lightboxMedia.replaceChildren(box);
+  lightboxCaption.replaceChildren(...[...slide.querySelector(".caption").children].map((part) => part.cloneNode(true)));
+}
+
+function openLightbox(slides, index, done) {
+  if (!lightbox) return;
+  lightboxSlides = slides;
+  lightboxDone = done;
+  showLightboxSlide(index);
+  const scrollbar = innerWidth - root.clientWidth;
+  if (scrollbar > 0) root.style.paddingRight = `${scrollbar}px`;
+  root.classList.add("is-lightbox-open");
+  lightbox.showModal();
+  lightboxClose.focus();
+}
+
+lightbox?.addEventListener("close", () => {
+  root.classList.remove("is-lightbox-open");
+  root.style.removeProperty("padding-right");
+  lightboxDone?.(lightboxSlides[lightboxIndex]);
+});
+
+lightboxClose?.addEventListener("click", () => lightbox.close());
+
+lightbox?.addEventListener("click", (event) => {
+  if (!event.target.closest(".lightbox-media, .lightbox-caption, .lightbox-close")) lightbox.close();
+});
+
+// On the document: a click on the image leaves the focus on the body.
+document.addEventListener("keydown", (event) => {
+  if (!lightbox?.open) return;
+  if (event.key === "Tab") {
+    event.preventDefault();
+    lightboxClose.focus();
+  } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    const step = event.key === "ArrowRight" ? 1 : -1;
+    const next = Math.min(lightboxSlides.length - 1, Math.max(0, lightboxIndex + step));
+    if (next !== lightboxIndex) showLightboxSlide(next);
+  }
+});
+
+// The demo split-view comes with a later card.
+function openDemo(caseId) {
+  console.log("openDemo", caseId);
+}
+
+const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO" };
+
 document.querySelectorAll(".case").forEach((caseEl) => {
   const scroller = caseEl.querySelector(".carousel");
   const slides = [...caseEl.querySelectorAll(".slide")];
@@ -675,10 +801,19 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     return dot;
   });
 
+  // The active slide is the tab stop, Enter on it acts like a click.
+  slides.forEach((slide, index) => {
+    slide.tabIndex = index === 0 ? 0 : -1;
+    slide.setAttribute("aria-label", `${slide.querySelector(".eyebrow")?.textContent ?? `Screen ${index + 1}`}, open`);
+  });
+
   let dragging = false;
   let moved = false;
   let startX = 0;
   let startScroll = 0;
+  let pressedSlide = null;
+  let pointerX = null;
+  let pointerY = null;
 
   scroller.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -686,6 +821,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     moved = false;
     startX = event.clientX;
     startScroll = scroller.scrollLeft;
+    pressedSlide = event.target.closest(".slide");
     scroller.setPointerCapture(event.pointerId);
     scroller.classList.add("is-dragging");
   });
@@ -700,6 +836,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   function endDrag() {
     dragging = false;
     scroller.classList.remove("is-dragging");
+    refreshCursor();
   }
 
   scroller.addEventListener("pointerup", endDrag);
@@ -711,9 +848,21 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     moved = false;
   }, true);
 
+  // Under pointer capture the click lands on the carousel, not on the slide.
+  scroller.addEventListener("click", (event) => {
+    const slide = event.target.closest(".slide") || pressedSlide;
+    pressedSlide = null;
+    if (slide) activateSlide(slide);
+  });
+
   function slideScrollLeft(slide) {
     const pad = parseFloat(getComputedStyle(scroller).paddingLeft) || 0;
     return slide.offsetLeft - scroller.offsetLeft - pad;
+  }
+
+  // The last slides cannot reach the start: they rest at the end of the scroll.
+  function restingScrollLeft(slide) {
+    return Math.min(slideScrollLeft(slide), scroller.scrollWidth - scroller.clientWidth);
   }
 
   function nearestIndex() {
@@ -721,7 +870,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     let best = 0;
     let bestDistance = Infinity;
     slides.forEach((slide, index) => {
-      const distance = Math.abs(slideScrollLeft(slide) - left);
+      const distance = Math.abs(restingScrollLeft(slide) - left);
       if (distance < bestDistance) {
         bestDistance = distance;
         best = index;
@@ -736,7 +885,65 @@ document.querySelectorAll(".case").forEach((caseEl) => {
       if (index === current) dot.setAttribute("aria-current", "true");
       else dot.removeAttribute("aria-current");
     });
+    slides.forEach((slide, index) => {
+      slide.tabIndex = index === current ? 0 : -1;
+    });
   }
+
+  // A slide cut by the carousel's edge is a step towards it; a whole one opens.
+  function slideZone(slide) {
+    const box = slide.getBoundingClientRect();
+    const view = scroller.getBoundingClientRect();
+    const whole = box.left >= view.left - 1 && box.right <= view.right + 1;
+    if (whole || slide === slides[nearestIndex()]) return slide.hasAttribute("data-demo") ? "demo" : "zoom";
+    return box.left > view.left ? "next" : "prev";
+  }
+
+  function activateSlide(slide) {
+    const zone = slideZone(slide);
+    if (zone === "next" || zone === "prev") {
+      goTo(slides.indexOf(slide));
+    } else if (zone === "demo") {
+      openDemo(caseEl.dataset.case);
+    } else {
+      leaveCursor();
+      const shown = slides.filter((item) => !item.hasAttribute("data-demo"));
+      openLightbox(shown, shown.indexOf(slide), (last) => {
+        if (slides[nearestIndex()] !== last) scroller.scrollTo({ left: restingScrollLeft(last), behavior: "auto" });
+        last.focus({ preventScroll: true });
+      });
+    }
+  }
+
+  // Read from the point, not the event: under pointer capture every move
+  // targets the carousel, and a scroll changes the zone under a still pointer.
+  function refreshCursor() {
+    if (pointerX === null || !fineHover.matches) return;
+    const over = document.elementFromPoint(pointerX, pointerY)?.closest(".slide");
+    const slide = slides.includes(over) && !(dragging && moved) ? over : null;
+    scroller.classList.toggle("has-cursor-label", !!slide);
+    if (slide) showCursorLabel(CURSOR_TEXT[slideZone(slide)], pointerX, pointerY);
+    else hideCursorLabel();
+  }
+
+  function trackPointer(event) {
+    if (event.pointerType === "touch") return;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    refreshCursor();
+  }
+
+  function leaveCursor() {
+    pointerX = null;
+    scroller.classList.remove("has-cursor-label");
+    hideCursorLabel();
+  }
+
+  scroller.addEventListener("pointerdown", trackPointer);
+  scroller.addEventListener("pointermove", trackPointer);
+  scroller.addEventListener("pointerleave", leaveCursor);
+  root.addEventListener("mouseleave", leaveCursor);
+  scroller.addEventListener("scroll", refreshCursor, { passive: true });
 
   function goTo(index) {
     const slide = slides[index];
@@ -754,6 +961,11 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   });
 
   scroller.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && slides.includes(event.target)) {
+      event.preventDefault();
+      activateSlide(event.target);
+      return;
+    }
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();
     const current = nearestIndex();
@@ -761,6 +973,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
       ? Math.min(slides.length - 1, current + 1)
       : Math.max(0, current - 1);
     goTo(next);
+    if (slides.includes(event.target)) slides[next].focus({ preventScroll: true });
   });
 });
 

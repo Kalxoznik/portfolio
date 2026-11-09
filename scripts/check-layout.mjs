@@ -803,7 +803,9 @@ try {
   // Light theme at 375: the small labels are the accent orange too (POR-43).
   const light375 = await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();
+    // Even cut to 0.01ms, the colour transitions may outlast two frames.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations().filter((a) => a.transitionProperty).map((a) => a.finished.catch(() => {})));
     return {
       theme: document.documentElement.getAttribute("data-theme"),
       meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
@@ -1027,6 +1029,309 @@ try {
     flag(`footer links in one row @${width}`, "same top", tops.map(fmt).join(" / "), oneRow);
     const inside = f.every((l) => l.left >= 0 && l.right <= width);
     flag(`footer links inside the window, no scroll @${width}`, `0 … ${width}, 0`, `${fmt(Math.min(...f.map((l) => l.left)))} … ${fmt(Math.max(...f.map((l) => l.right)))}, ${links.overflow}`, inside && links.overflow <= 0);
+  }
+
+  // Carousel clicks, lightbox and cursor label (POR-45). Each run has its own
+  // page, so the slides the rows change do not reach the rows above.
+  async function openCarouselPage(options) {
+    const ctx = await browser.newContext({ deviceScaleFactor: 1, colorScheme: "dark", ...options });
+    const p = await ctx.newPage();
+    await p.goto(url, { waitUntil: "load" });
+    await p.evaluate(async () => {
+      await document.fonts.ready;
+      const top = document.querySelector(".carousel").getBoundingClientRect().top + scrollY;
+      window.scrollTo({ top: top - 160, behavior: "instant" });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    return p;
+  }
+  const settle = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const activeDot = (p, c = 0) =>
+    p.evaluate((c) => [...document.querySelectorAll(".carousel-dots")[c].children].findIndex((d) => d.getAttribute("aria-current") === "true"), c);
+  // The middle of the part of a slide's box that shows in the window.
+  const slidePoint = (p, i, c = 0) =>
+    p.evaluate(({ i, c }) => {
+      const r = document.querySelectorAll(".carousel")[c].querySelectorAll(".placeholder")[i].getBoundingClientRect();
+      const left = Math.max(0, r.left);
+      const right = Math.min(innerWidth, r.right);
+      return { x: (left + right) / 2, y: r.top + r.height / 2, visible: right - left };
+    }, { i, c });
+  const hoverSlide = async (p, i, c = 0) => {
+    const at = await slidePoint(p, i, c);
+    await p.mouse.move(at.x, at.y);
+    await settle(p);
+    return at;
+  };
+  const clickSlide = async (p, i, c = 0) => {
+    const at = await hoverSlide(p, i, c);
+    await p.mouse.click(at.x, at.y);
+    await settle(p);
+  };
+  const labelState = (p) =>
+    p.evaluate(() => {
+      const el = document.querySelector(".cursor-label");
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return {
+        text: el.textContent,
+        visible: el.classList.contains("is-visible"),
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+        left: r.left,
+        right: r.right,
+        bg: cs.backgroundColor,
+        color: cs.color,
+        font: `${cs.fontSize} ${cs.fontWeight} ${cs.textTransform} ${cs.fontFamily.split(",")[0].replace(/"/g, "")}`,
+      };
+    });
+  const lightboxState = (p) =>
+    p.evaluate(() => {
+      const box = document.querySelector(".lightbox");
+      const media = box.querySelector(".lightbox-media").getBoundingClientRect();
+      const caption = box.querySelector(".lightbox-caption");
+      const active = document.activeElement;
+      return {
+        open: box.open,
+        media: [media.left, media.top, media.right, media.bottom],
+        captionBottom: caption.getBoundingClientRect().bottom,
+        eyebrow: caption.querySelector(".eyebrow")?.textContent,
+        text: caption.querySelector(".caption-text")?.textContent,
+        textColor: caption.querySelector(".caption-text") ? getComputedStyle(caption.querySelector(".caption-text")).color : null,
+        dialogBg: getComputedStyle(box).backgroundColor,
+        focusInside: box.contains(active),
+        focusOnSlide: active.classList.contains("slide"),
+        focusEyebrow: active.querySelector?.(".eyebrow")?.textContent,
+        rootOverflow: getComputedStyle(document.documentElement).overflow,
+      };
+    });
+
+  for (const [theme, width, height] of [["dark", 1920, 1080], ["light", 1920, 1080], ["dark", 375, 812], ["light", 375, 812]]) {
+    const tag = `${theme} @${width}`;
+    const p = await openCarouselPage({ viewport: { width, height }, reducedMotion: "reduce" });
+    const logs = [];
+    p.on("console", (m) => logs.push(m.text()));
+    if (theme === "light") await p.evaluate(() => document.querySelector(".theme-toggle").click());
+    const accent = theme === "dark" ? "rgb(255, 175, 46)" : "rgb(255, 138, 0)";
+    flag(`carousel ${tag}: theme`, theme, await p.evaluate(() => document.documentElement.dataset.theme), (await p.evaluate(() => document.documentElement.dataset.theme)) === theme);
+
+    // Next, then back.
+    await hoverSlide(p, 1);
+    let label = await labelState(p);
+    flag(`cursor ${tag}: partial slide on the right reads NEXT`, "NEXT → visible", `${label.text} ${label.visible ? "visible" : "hidden"}`, label.text === "NEXT →" && label.visible);
+    flag(`cursor ${tag}: pill in --accent`, accent, label.bg, label.bg === accent);
+    flag(`cursor ${tag}: dark text`, "rgb(22, 21, 20)", label.color, label.color === "rgb(22, 21, 20)");
+    flag(`cursor ${tag}: 13px Inter Bold uppercase`, "13px 700 uppercase Inter", label.font, label.font === "13px 700 uppercase Inter");
+    flag(`cursor ${tag}: pill stays inside the window`, `0 … ${width}`, `${fmt(label.left)} … ${fmt(label.right)}`, label.left >= 0 && label.right <= width);
+    const hidden = await p.evaluate(() => getComputedStyle(document.querySelector(".carousel .placeholder")).cursor);
+    flag(`cursor ${tag}: native cursor hidden over slides`, "none", hidden, hidden === "none");
+    await clickSlide(p, 1);
+    flag(`click ${tag}: partial next slide moves the dot by 1`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    await clickSlide(p, 2);
+    flag(`click ${tag}: the last slide moves the dot to the last`, 2, await activeDot(p), (await activeDot(p)) === 2);
+    const prevPoint = await hoverSlide(p, 1);
+    label = await labelState(p);
+    flag(`cursor ${tag}: partial slide on the left reads PREV`, "← PREV", label.text, label.text === "← PREV" && prevPoint.visible > 0);
+    flag(`cursor ${tag}: PREV pill stays inside the window`, `0 … ${width}`, `${fmt(label.left)} … ${fmt(label.right)}`, label.left >= 0 && label.right <= width);
+    await clickSlide(p, 1);
+    flag(`click ${tag}: partial previous slide moves the dot back by 1`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
+    await settle(p);
+
+    // Lightbox.
+    const before = await p.evaluate(() => scrollY);
+    const logoLeft = () => p.evaluate(() => document.querySelector('[data-check="logo"]').getBoundingClientRect().left);
+    const logoBefore = await logoLeft();
+    await hoverSlide(p, 0);
+    label = await labelState(p);
+    flag(`cursor ${tag}: active slide reads ZOOM`, "ZOOM", label.text, label.text === "ZOOM");
+    await clickSlide(p, 0);
+    let lb = await lightboxState(p);
+    flag(`lightbox ${tag}: click on the active slide opens it`, "open", lb.open ? "open" : "closed", lb.open);
+    flag(`lightbox ${tag}: caption of that slide`, "Screen 01", lb.eyebrow, lb.eyebrow === "Screen 01");
+    flag(`lightbox ${tag}: caption text is light`, "rgb(211, 207, 195)", lb.textColor, lb.textColor === "rgb(211, 207, 195)");
+    const fits = lb.media[0] >= 0 && lb.media[1] >= 0 && lb.media[2] <= width && lb.captionBottom <= height;
+    flag(`lightbox ${tag}: image and caption fit the window`, `0 … ${width}, ≤ ${height}`, `${lb.media.map(fmt).join(" ")}, caption ${fmt(lb.captionBottom)}`, fits);
+    flag(`lightbox ${tag}: image larger than the slide`, width === 1920 ? "> 953" : "> 322.5", fmt(lb.media[2] - lb.media[0]), lb.media[2] - lb.media[0] > (width === 1920 ? 953 : 322.5));
+    flag(`lightbox ${tag}: cursor pill gone`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    flag(`lightbox ${tag}: page scroll locked`, "hidden", lb.rootOverflow, lb.rootOverflow === "hidden");
+    num(`lightbox ${tag}: the page does not shift sideways`, logoBefore, await logoLeft(), 0.5);
+    const covers = await p.evaluate(() => {
+      const r = document.querySelector(".lightbox").getBoundingClientRect();
+      return r.left <= 0 && r.right >= innerWidth && r.top <= 0 && r.bottom >= innerHeight;
+    });
+    flag(`lightbox ${tag}: dim covers the whole window`, "yes", covers ? "yes" : "no", covers);
+    await p.mouse.wheel(0, 400);
+    await settle(p);
+    const after = await p.evaluate(() => scrollY);
+    flag(`lightbox ${tag}: wheel does not scroll the page`, fmt(before), fmt(after), Math.abs(after - before) < 1);
+    await p.keyboard.press("Tab");
+    await p.keyboard.press("Tab");
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: focus trapped under Tab`, "inside", lb.focusInside ? "inside" : "outside", lb.focusInside);
+    await p.keyboard.press("ArrowLeft");
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: ← stops at the first slide`, "Screen 01", lb.eyebrow, lb.eyebrow === "Screen 01");
+    await p.keyboard.press("ArrowRight");
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: → shows the next slide`, "Screen 02", lb.eyebrow, lb.eyebrow === "Screen 02");
+    await p.keyboard.press("Escape");
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: Esc closes it`, "closed", lb.open ? "open" : "closed", !lb.open);
+    flag(`lightbox ${tag}: focus returns to the slide last shown`, "slide Screen 02", `${lb.focusOnSlide ? "slide" : "other"} ${lb.focusEyebrow}`, lb.focusOnSlide && lb.focusEyebrow === "Screen 02");
+    flag(`lightbox ${tag}: carousel follows the slide last shown`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    flag(`lightbox ${tag}: scroll lock lifted`, "not hidden", lb.rootOverflow, lb.rootOverflow !== "hidden");
+
+    // Enter on the focused active slide, then the × and a click outside.
+    await p.keyboard.press("Enter");
+    lb = await lightboxState(p);
+    flag(`keyboard ${tag}: Enter on the active slide opens it`, "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+    await p.click(".lightbox-close");
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: × closes it, focus returns`, "closed, slide", `${lb.open ? "open" : "closed"}, ${lb.focusOnSlide ? "slide" : "other"}`, !lb.open && lb.focusOnSlide);
+    await p.keyboard.press("Enter");
+    await p.mouse.click(4, Math.floor(height / 2));
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: click outside closes it`, "closed", lb.open ? "open" : "closed", !lb.open);
+
+    // A drag never opens anything, and shows the grabbing cursor, not the pill.
+    await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
+    await settle(p);
+    const from = await hoverSlide(p, 0);
+    await p.mouse.down();
+    await p.mouse.move(from.x - 60, from.y, { steps: 4 });
+    await settle(p);
+    label = await labelState(p);
+    const grabbing = await p.evaluate(() => getComputedStyle(document.querySelector(".carousel .placeholder")).cursor);
+    flag(`drag ${tag}: pill hidden while dragging`, "hidden", label.visible ? "visible" : "hidden", !label.visible);
+    flag(`drag ${tag}: grabbing cursor`, "grabbing", grabbing, grabbing === "grabbing");
+    await p.mouse.up();
+    await settle(p);
+    lb = await lightboxState(p);
+    flag(`drag ${tag}: does not open the lightbox`, "closed", lb.open ? "open" : "closed", !lb.open);
+    await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
+    await settle(p);
+
+    // Off the slides the pill goes, and the native cursor comes back.
+    await hoverSlide(p, 0);
+    const gap = await p.evaluate(() => {
+      const r = document.querySelector(".carousel .placeholder").getBoundingClientRect();
+      return { x: r.right + 10, y: r.top + 20 };
+    });
+    await p.mouse.move(gap.x, gap.y);
+    await settle(p);
+    flag(`cursor ${tag}: hidden in the gap between slides`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    await hoverSlide(p, 0);
+    await p.mouse.move(width / 2, 5);
+    await settle(p);
+    flag(`cursor ${tag}: hidden off the carousel`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    await hoverSlide(p, 0);
+    await p.evaluate(() => document.documentElement.dispatchEvent(new MouseEvent("mouseleave")));
+    await settle(p);
+    flag(`cursor ${tag}: hidden when the pointer leaves the window`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+
+    // A demo slide, marked the way the later card will mark it.
+    await p.evaluate(() => {
+      const carousel = document.querySelectorAll(".carousel")[1];
+      carousel.querySelector(".slide").setAttribute("data-demo", "");
+      const top = carousel.getBoundingClientRect().top + scrollY;
+      window.scrollTo({ top: top - 160, behavior: "instant" });
+    });
+    await settle(p);
+    await hoverSlide(p, 0, 1);
+    label = await labelState(p);
+    flag(`cursor ${tag}: demo slide reads OPEN DEMO`, "OPEN DEMO", label.text, label.text === "OPEN DEMO");
+    await clickSlide(p, 0, 1);
+    lb = await lightboxState(p);
+    const demoLog = logs.includes("openDemo second-project");
+    flag(`click ${tag}: demo slide calls openDemo(caseId)`, "openDemo second-project", logs.join(" | ") || "nothing", demoLog);
+    flag(`click ${tag}: demo slide opens no lightbox`, "closed", lb.open ? "open" : "closed", !lb.open);
+
+    // A real image: the largest file, whole, in the same box.
+    await p.evaluate(() => {
+      const box = document.querySelectorAll(".carousel")[1].querySelectorAll(".placeholder")[1];
+      box.replaceChildren();
+      const img = new Image(953, 675);
+      img.src = "assets/og-image.png";
+      img.srcset = "assets/og-image.png 1x, favicon.svg 2x";
+      img.alt = "Test image";
+      img.loading = "lazy";
+      img.draggable = false;
+      box.appendChild(img);
+    });
+    await clickSlide(p, 1, 1);
+    await settle(p);
+    await clickSlide(p, 1, 1);
+    const image = await p.evaluate(() => {
+      const img = document.querySelector(".lightbox-media img");
+      return img ? { src: img.getAttribute("src"), fit: getComputedStyle(img).objectFit, slides: document.querySelector(".carousel .placeholder") !== null } : null;
+    });
+    flag(`lightbox ${tag}: real image at its largest file, fit whole`, "favicon.svg contain", image ? `${image.src} ${image.fit}` : "missing", image?.src === "favicon.svg" && image.fit === "contain");
+    await p.keyboard.press("ArrowLeft");
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: ← skips the demo slide`, "Screen 02", lb.eyebrow, lb.eyebrow === "Screen 02");
+    await p.keyboard.press("Escape");
+    await settle(p);
+    const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    flag(`carousel ${tag}: no horizontal scroll`, "0", over, over <= 0);
+    await p.context().close();
+  }
+
+  // Motion on: the pill eases after the pointer and the step is a smooth scroll.
+  // Reduced motion: the pill is already there on the next frame.
+  {
+    const p = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "no-preference" });
+    await p.mouse.move(300, 400);
+    await settle(p);
+    await p.mouse.move(800, 500);
+    const lag = await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => {
+      const b = document.querySelector(".cursor-label").getBoundingClientRect();
+      r(b.left + b.width / 2);
+    })));
+    flag("motion on: pill eases after the pointer", "300 < x < 800", fmt(lag), lag > 300 && lag < 790);
+    await p.waitForTimeout(600);
+    const landed = await labelState(p);
+    num("motion on: pill lands on the pointer", 800, landed.x, 0.5);
+    const at = await slidePoint(p, 1);
+    await p.mouse.click(at.x, at.y);
+    const mid = await p.evaluate(() => {
+      const c = document.querySelector(".carousel");
+      return new Promise((r) => requestAnimationFrame(() => r(c.scrollLeft)));
+    });
+    flag("motion on: the step scrolls smoothly", "< 973", fmt(mid), mid < 972);
+    await p.waitForTimeout(1200);
+    flag("motion on: the step ends one dot on", 1, await activeDot(p), (await activeDot(p)) === 1);
+    const left = await p.evaluate(() => document.querySelector(".carousel").scrollLeft);
+    num("motion on: the step snaps to the next slide", 973, left, 1);
+    await p.context().close();
+
+    const still = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
+    await still.mouse.move(300, 400);
+    await settle(still);
+    await still.mouse.move(800, 500);
+    await settle(still);
+    num("reduced motion: pill jumps to the pointer", 800, (await labelState(still)).x, 0.5);
+    await still.context().close();
+  }
+
+  // Touch: no pill; a tap does what a click does.
+  {
+    const p = await openCarouselPage({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
+    const fine = await p.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches);
+    flag("touch @375: not a fine pointer", "false", String(fine), !fine);
+    const a = await slidePoint(p, 1);
+    await p.touchscreen.tap(a.x, a.y);
+    await settle(p);
+    flag("touch @375: tap on the partial slide moves the dot", 1, await activeDot(p), (await activeDot(p)) === 1);
+    flag("touch @375: no pill", "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    const b = await slidePoint(p, 1);
+    await p.touchscreen.tap(b.x, b.y);
+    await settle(p);
+    const lb = await lightboxState(p);
+    flag("touch @375: tap on the active slide opens the lightbox", "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+    await p.context().close();
   }
 } finally {
   await browser.close();

@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Unbounded:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Unbounded:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body id="top">
@@ -82,7 +82,7 @@
       <section class="work" id="work" aria-labelledby="work-title">
         <h2 class="visually-hidden" id="work-title">Recent Work</h2>
 
-        <article class="case">
+        <article class="case" data-case="creative-space">
           <div class="case-head">
             <h3 data-check="case-title">Creative Space</h3>
             <dl class="case-meta" data-check="case-meta">
@@ -127,7 +127,7 @@
           <div class="carousel-dots" data-check="case-dots" role="group" aria-label="Creative Space screen navigation"></div>
         </article>
 
-        <article class="case">
+        <article class="case" data-case="second-project">
           <div class="case-head">
             <h3 data-check="case-title">Creative Space</h3>
             <dl class="case-meta" data-check="case-meta">
@@ -298,6 +298,13 @@
         <p class="copyright">© 2026 Max Shakurov. All rights reserved.</p>
       </div>
     </footer>
+    <dialog class="lightbox" aria-label="Screen preview">
+      <button class="lightbox-close" type="button" aria-label="Close preview">×</button>
+      <figure class="lightbox-figure">
+        <div class="lightbox-media"></div>
+        <figcaption class="lightbox-caption caption" aria-live="polite"></figcaption>
+      </figure>
+    </dialog>
     <script src="main.js"></script>
   </body>
 </html>
