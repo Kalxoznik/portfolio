@@ -557,6 +557,13 @@ try {
   flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
   flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
   flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
+  // Light theme: small labels use --accent-text, the same orange as --accent (POR-43).
+  const labels = await page.evaluate(() => ({
+    meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
+    eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
+  }));
+  flag("light theme: case meta label colour", "rgb(255, 138, 0)", labels.meta, labels.meta === "rgb(255, 138, 0)");
+  flag("light theme: slide caption label colour", "rgb(255, 138, 0)", labels.eyebrow, labels.eyebrow === "rgb(255, 138, 0)");
   // A second click while the circle grows: the browser skips the first
   // transition, and its end must not lift the no-fade class from the second.
   const twice = await page.evaluate(async () => {
@@ -793,6 +800,23 @@ try {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const over375 = await page.evaluate(overflowX);
   flag("no horizontal scroll @375", "0", over375, over375 <= 0);
+  // Light theme at 375: the small labels are the accent orange too (POR-43).
+  const light375 = await page.evaluate(async () => {
+    document.querySelector(".theme-toggle").click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return {
+      theme: document.documentElement.getAttribute("data-theme"),
+      meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
+      eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
+    };
+  });
+  flag("light theme @375: case meta label colour", "rgb(255, 138, 0)", `${light375.meta} (${light375.theme})`, light375.theme === "light" && light375.meta === "rgb(255, 138, 0)");
+  flag("light theme @375: slide caption label colour", "rgb(255, 138, 0)", `${light375.eyebrow} (${light375.theme})`, light375.theme === "light" && light375.eyebrow === "rgb(255, 138, 0)");
+  const dark375 = await page.evaluate(() => {
+    document.querySelector(".theme-toggle").click();
+    return document.documentElement.getAttribute("data-theme");
+  });
+  flag("light theme @375: back to dark after the rows", "dark", dark375, dark375 === "dark");
   await timelineChecks(375);
   for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1399, 1400]) {
     await page.setViewportSize({ width, height: 900 });
