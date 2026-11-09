@@ -82,7 +82,7 @@
       <section class="work" id="work" aria-labelledby="work-title">
         <h2 class="visually-hidden" id="work-title">Recent Work</h2>
 
-        <article class="case" data-case="creative-space">
+        <article class="case" id="creative-space" data-case="creative-space" data-demo="demo/creative-space/">
           <div class="case-head">
             <h3 data-check="case-title">Creative Space</h3>
             <dl class="case-meta" data-check="case-meta">
@@ -122,6 +122,11 @@
                 <span class="placeholder-label">Image placeholder</span>
               </div>
               <p class="caption"><span class="eyebrow">Screen 03</span><span class="caption-text">Short caption describing what this screen shows and why it matters.</span></p>
+            </article>
+            <article class="slide" data-demo>
+              <div class="placeholder">
+                <button class="demo-trigger" type="button" data-check="demo-trigger">Try the demo</button>
+              </div>
             </article>
           </div>
           <div class="carousel-dots" data-check="case-dots" role="group" aria-label="Creative Space screen navigation"></div>
@@ -305,6 +310,29 @@
         <figcaption class="lightbox-caption caption" aria-live="polite"></figcaption>
       </figure>
     </dialog>
+    <div class="demo" hidden>
+      <span class="demo-edge-start" tabindex="0"></span>
+      <iframe class="demo-column" title="This site, mobile view"></iframe>
+      <div class="demo-panel" role="dialog" aria-modal="true" aria-label="Demo">
+        <div class="demo-bar" data-check="demo-bar">
+          <button class="demo-button demo-exit" type="button" aria-label="Close demo">
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <path d="M8 3.5H4.5V16.5H8M12.5 6.5L9 10L12.5 13.5M9 10H17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="demo-pill-wrap">
+            <p class="demo-pill" data-check="demo-pill">Demo version — some features are limited</p>
+            <button class="demo-button demo-refresh" type="button" aria-label="Reload demo">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <path d="M15.5 10A5.5 5.5 0 1 1 13.9 6.1M14 2.5V6.5H10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <iframe class="demo-frame" title="Creative Space demo"></iframe>
+      </div>
+      <span class="demo-edge-end" tabindex="0"></span>
+    </div>
     <script src="main.js"></script>
   </body>
 </html>

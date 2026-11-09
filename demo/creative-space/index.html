@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      (function () {
+        var theme = "dark";
+        try {
+          var stored = localStorage.getItem("theme");
+          if (stored === "light" || stored === "dark") theme = stored;
+          else if (window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+        } catch (e) {}
+        document.documentElement.setAttribute("data-theme", theme);
+        // The site's theme switch reaches this page too.
+        window.addEventListener("storage", function (event) {
+          if (event.key === "theme" && (event.newValue === "light" || event.newValue === "dark")) {
+            document.documentElement.setAttribute("data-theme", event.newValue);
+          }
+        });
+      })();
+    </script>
+    <title>Creative Space — Demo</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../styles.css">
+    <style>
+      /* A placeholder until the real demo: the site's colours, no dots. */
+      body {
+        display: grid;
+        place-items: center;
+        background-image: none;
+      }
+
+      .demo-placeholder {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="demo-placeholder" data-check="demo-placeholder">Demo coming soon</p>
+  </body>
+</html>

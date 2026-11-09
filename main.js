@@ -25,6 +25,14 @@ function applyTheme(theme) {
 
 syncToggleLabel();
 
+// The demo column and the demo are copies on the same origin (POR-46): a theme
+// switched in one of them follows in the others.
+window.addEventListener("storage", (event) => {
+  if (event.key !== "theme" || (event.newValue !== "light" && event.newValue !== "dark")) return;
+  root.setAttribute("data-theme", event.newValue);
+  syncToggleLabel();
+});
+
 // The new theme opens as a circle from the toggle's centre over the old one
 // (View Transitions). Without the API or with reduced motion it switches at
 // once. Colour transitions are cut while the new state is drawn, so the
@@ -778,9 +786,200 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// The demo split-view comes with a later card.
+// Demo mode (POR-46). A case opts in with data-demo="<url of its demo>". From
+// 1200 the site moves into a 375px column, a copy of itself loaded as
+// ?embed=column so its mobile layout applies, and the demo panel takes the rest;
+// narrower, the panel alone fills the window. The copy never opens demo mode
+// itself: it asks this page to. Open, the URL ends in #demo=<case>, so Back
+// closes it and the address opens it again. The page under it is inert, which
+// keeps the focus in the column and the panel.
+const embedded = new URLSearchParams(location.search).get("embed") === "column";
+const demo = document.querySelector(".demo");
+const demoColumn = demo?.querySelector(".demo-column");
+const demoPanel = demo?.querySelector(".demo-panel");
+const demoFrame = demo?.querySelector(".demo-frame");
+const demoExit = demo?.querySelector(".demo-exit");
+const demoWide = window.matchMedia("(min-width: 1200px)");
+const DEMO_MS = 450;
+let demoCase = null;
+let demoTrigger = null;
+let demoClosing = null;
+let demoGoingBack = false;
+let demoColumnLoaded = false;
+
+function demoCaseEl(caseId) {
+  const caseEl = caseId ? document.querySelector(`.case[data-case="${CSS.escape(caseId)}"]`) : null;
+  return caseEl?.dataset.demo ? caseEl : null;
+}
+
+function hashDemo() {
+  const match = location.hash.match(/^#demo=([\w-]+)$/);
+  return match ? match[1] : null;
+}
+
+// A folder URL does not open its index.html from disk.
+function demoUrl(src) {
+  const target = new URL(src, location.href);
+  if (target.protocol === "file:" && target.pathname.endsWith("/")) target.pathname += "index.html";
+  return target.href;
+}
+
+// Setting src would add each load to the page's history, and Back would step
+// the frame back instead of closing: the frames are only ever replaced.
+function loadFrame(frame, href) {
+  frame.contentWindow.location.replace(href);
+}
+
+function loadDemoColumn() {
+  if (!demoCase || !demoWide.matches || demoColumnLoaded) return;
+  const target = new URL(location.href);
+  target.search = "?embed=column";
+  target.hash = demoCase.id;
+  loadFrame(demoColumn, target.href);
+  demoColumnLoaded = true;
+}
+
+function pageParts() {
+  return [...document.body.children].filter((el) => el !== demo && el.tagName !== "SCRIPT");
+}
+
+// The page shrinks towards the column's side and fades; the column fades in
+// over it and the panel comes in from the right. Closing plays it backwards.
+function animateDemo(opening) {
+  const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
+  const options = { duration: DEMO_MS, easing, direction: opening ? "normal" : "reverse", fill: "both" };
+  const runs = [demoPanel.animate({ transform: ["translateX(100%)", "none"] }, options)];
+  if (demoWide.matches) {
+    runs.push(demoColumn.animate({ opacity: [0, 1] }, options));
+    pageParts().forEach((el) => {
+      const box = el.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      el.style.transformOrigin = `${-box.left}px ${innerHeight / 2 - box.top}px`;
+      runs.push(el.animate({ transform: ["none", "scale(0.85)"], opacity: [1, 0] }, options));
+    });
+  }
+  return Promise.all(runs.map((run) => run.finished)).then(() => runs);
+}
+
+function startDemo(caseId, animate) {
+  const caseEl = demoCaseEl(caseId);
+  if (!demo || !caseEl || demoCase) return false;
+  demoCase = caseEl;
+  demoTrigger = document.activeElement;
+  hideCursorLabel();
+  setMenuOpen(false);
+  const scrollbar = innerWidth - root.clientWidth;
+  if (scrollbar > 0) root.style.paddingRight = `${scrollbar}px`;
+  root.classList.add("is-demo-open");
+  loadFrame(demoFrame, demoUrl(caseEl.dataset.demo));
+  loadDemoColumn();
+  demo.hidden = false;
+  pageParts().forEach((el) => { el.inert = true; });
+  demoExit.focus({ preventScroll: true });
+  if (animate && !motionMedia.matches) animateDemo(true).then((runs) => runs.forEach((run) => run.cancel()));
+  return true;
+}
+
+function endDemo() {
+  demoGoingBack = false;
+  if (!demoCase || demoClosing) return;
+  const finish = (runs = []) => {
+    pageParts().forEach((el) => {
+      el.inert = false;
+      el.style.removeProperty("transform-origin");
+    });
+    demo.hidden = true;
+    runs.forEach((run) => run.cancel());
+    loadFrame(demoFrame, "about:blank");
+    if (demoColumnLoaded) loadFrame(demoColumn, "about:blank");
+    demoColumnLoaded = false;
+    root.classList.remove("is-demo-open");
+    root.style.removeProperty("padding-right");
+    const trigger = demoTrigger?.isConnected && demoTrigger !== document.body ? demoTrigger : demoCase.querySelector(".demo-trigger");
+    demoCase = null;
+    demoTrigger = null;
+    demoClosing = null;
+    trigger?.focus({ preventScroll: true });
+  };
+  if (motionMedia.matches) {
+    finish();
+    return;
+  }
+  demoClosing = animateDemo(false).then(finish);
+}
+
+// The entry openDemo added goes back off the history; one the page was opened
+// with is replaced, so closing never leaves the site.
+function closeDemo() {
+  if (!demoCase || demoClosing || demoGoingBack) return;
+  if (history.state?.demo) {
+    demoGoingBack = true;
+    history.back();
+    return;
+  }
+  history.replaceState(null, "", location.pathname + location.search);
+  endDemo();
+}
+
 function openDemo(caseId) {
-  console.log("openDemo", caseId);
+  if (embedded) {
+    window.parent.postMessage({ type: "demo-open", caseId }, "*");
+    return;
+  }
+  if (startDemo(caseId, true)) history.pushState({ demo: caseId }, "", `#demo=${caseId}`);
+}
+
+if (demo && !embedded) {
+  demoExit.addEventListener("click", closeDemo);
+  demo.querySelector(".demo-refresh").addEventListener("click", () => {
+    loadFrame(demoFrame, demoUrl(demoCase.dataset.demo));
+  });
+
+  // Tab past either end comes back round: from the last edge to the column
+  // (or the exit button), from the first to the demo.
+  demo.querySelector(".demo-edge-end").addEventListener("focus", () => {
+    (demoWide.matches ? demoColumn : demoExit).focus();
+  });
+  demo.querySelector(".demo-edge-start").addEventListener("focus", () => demoFrame.focus());
+
+  window.addEventListener("message", (event) => {
+    if (event.source === demoColumn.contentWindow && event.data?.type === "demo-open") openDemo(event.data.caseId);
+  });
+
+  function onDemoKey(event) {
+    if (event.key === "Escape" && demoCase) closeDemo();
+  }
+
+  document.addEventListener("keydown", onDemoKey);
+
+  // Esc pressed inside either frame, where the page can reach it. In the column
+  // its own menu or lightbox closes first.
+  [demoColumn, demoFrame].forEach((frame) => {
+    frame.addEventListener("load", () => {
+      try {
+        const win = frame.contentWindow;
+        win.addEventListener("keydown", (event) => {
+          if (win.document.querySelector(".lightbox[open], .site-header.is-menu-open")) return;
+          onDemoKey(event);
+        }, true);
+      } catch (error) {}
+    });
+  });
+
+  window.addEventListener("popstate", () => {
+    const caseId = hashDemo();
+    if (!caseId) endDemo();
+    else if (!demoCase) startDemo(caseId, true);
+  });
+
+  demoWide.addEventListener("change", loadDemoColumn);
+
+  // Opened from the address: the page waits on the case underneath.
+  const initialDemo = demoCaseEl(hashDemo());
+  if (initialDemo) {
+    window.scrollTo({ top: initialDemo.getBoundingClientRect().top + scrollY, behavior: "instant" });
+    startDemo(initialDemo.dataset.case, false);
+  }
 }
 
 const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO" };
@@ -981,6 +1180,25 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     goTo(next);
     if (slides.includes(event.target)) slides[next].focus({ preventScroll: true });
   });
+});
+
+// "Try the demo" opens the demo wherever its slide is, even half in view. Under
+// pointer capture the click lands on the carousel, so the press says whether it
+// was on the button; a drag (prevented above) opens nothing.
+document.querySelectorAll(".demo-trigger").forEach((button) => {
+  const scroller = button.closest(".carousel");
+  const caseId = button.closest(".case")?.dataset.case;
+  let pressed = false;
+  scroller?.addEventListener("pointerdown", (event) => {
+    pressed = event.target.closest(".demo-trigger") === button;
+  }, true);
+  scroller?.addEventListener("click", (event) => {
+    const onButton = pressed || event.target.closest(".demo-trigger") === button;
+    pressed = false;
+    if (!onButton || event.defaultPrevented) return;
+    event.stopImmediatePropagation();
+    openDemo(caseId);
+  }, true);
 });
 
 // Link hover (POR-24): every letter rolls up and its copy rolls in from below,

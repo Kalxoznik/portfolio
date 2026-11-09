@@ -874,7 +874,8 @@ try {
     );
     const expectedW = width <= 1080 ? Math.min(953, width * 0.86) : 953;
     const expectedH = (expectedW * 675) / 953;
-    flag(`slides: ${sizes.length} found @${width}`, "6", sizes.length, sizes.length === 6);
+    // Six screens and Creative Space's demo slide (POR-46).
+    flag(`slides: ${sizes.length} found @${width}`, "7", sizes.length, sizes.length === 7);
     const allW = sizes.every(([w]) => Math.abs(w - expectedW) <= TOLERANCE);
     const allH = sizes.every(([, h]) => Math.abs(h - expectedH) <= TOLERANCE);
     flag(`slides all ${fmt(expectedW)} wide @${width}`, fmt(expectedW), [...new Set(sizes.map(([w]) => fmt(w)))].join(","), allW);
@@ -1172,13 +1173,17 @@ try {
     await clickSlide(p, 1);
     flag(`click ${tag}: partial next slide moves the dot by 1`, 1, await activeDot(p), (await activeDot(p)) === 1);
     await clickSlide(p, 2);
-    flag(`click ${tag}: the last slide moves the dot to the last`, 2, await activeDot(p), (await activeDot(p)) === 2);
-    const prevPoint = await hoverSlide(p, 1);
+    flag(`click ${tag}: the third slide moves the dot to it`, 2, await activeDot(p), (await activeDot(p)) === 2);
+    // At 375 the demo slide (POR-46) is one more step: the end of the scroll,
+    // where the slide before shows a sliver on the left.
+    if (width === 375) await clickSlide(p, 3);
+    const atEnd = await activeDot(p);
+    const prevPoint = await hoverSlide(p, atEnd - 1);
     label = await labelState(p);
     flag(`cursor ${tag}: partial slide on the left reads PREV`, "← PREV", label.text, label.text === "← PREV" && prevPoint.visible > 0);
     flag(`cursor ${tag}: PREV pill stays inside the window`, `0 … ${width}`, `${fmt(label.left)} … ${fmt(label.right)}`, label.left >= 0 && label.right <= width);
-    await clickSlide(p, 1);
-    flag(`click ${tag}: partial previous slide moves the dot back by 1`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    await clickSlide(p, atEnd - 1);
+    flag(`click ${tag}: partial previous slide moves the dot back by 1`, atEnd - 1, await activeDot(p), (await activeDot(p)) === atEnd - 1);
     await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
     await settle(p);
 
@@ -1280,6 +1285,12 @@ try {
 
     // A demo slide, marked the way the later card will mark it.
     await p.evaluate(() => {
+      // openDemo is real since POR-46 and this case has no demo: log the call.
+      const realOpenDemo = window.openDemo;
+      window.openDemo = (caseId) => {
+        console.log("openDemo", caseId);
+        realOpenDemo(caseId);
+      };
       const carousel = document.querySelectorAll(".carousel")[1];
       carousel.querySelector(".slide").setAttribute("data-demo", "");
       const top = carousel.getBoundingClientRect().top + scrollY;
@@ -1294,6 +1305,8 @@ try {
     const demoLog = logs.includes("openDemo second-project");
     flag(`click ${tag}: demo slide calls openDemo(caseId)`, "openDemo second-project", logs.join(" | ") || "nothing", demoLog);
     flag(`click ${tag}: demo slide opens no lightbox`, "closed", lb.open ? "open" : "closed", !lb.open);
+    const noDemo = await p.evaluate(() => document.querySelector(".demo").hidden);
+    flag(`click ${tag}: a case without data-demo opens no demo`, "hidden", noDemo ? "hidden" : "open", noDemo);
 
     // A real image: the largest file, whole, in the same box.
     await p.evaluate(() => {
@@ -1506,6 +1519,320 @@ try {
     await settle(p);
     const lb = await lightboxState(p);
     flag("touch @375: tap on the active slide opens the lightbox", "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+    await p.context().close();
+  }
+
+  // Demo mode (POR-46): the site in a 375 column from 1200, the panel beside it
+  // or, narrower, over the whole window.
+  const demoState = (p) =>
+    p.evaluate(() => {
+      const box = (sel) => {
+        const r = document.querySelector(sel).getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      };
+      const column = document.querySelector(".demo-column");
+      const active = document.activeElement;
+      return {
+        open: !document.querySelector(".demo").hidden,
+        column: box(".demo-column"),
+        columnShown: getComputedStyle(column).display !== "none",
+        columnSrc: column.contentWindow.location.href,
+        frameSrc: document.querySelector(".demo-frame").contentWindow.location.href,
+        panel: box(".demo-panel"),
+        bar: box(".demo-bar"),
+        pill: box(".demo-pill"),
+        pillText: document.querySelector(".demo-pill").textContent,
+        refresh: box(".demo-refresh"),
+        exit: box(".demo-exit"),
+        dialog: `${document.querySelector(".demo-panel").getAttribute("role")} ${document.querySelector(".demo-panel").getAttribute("aria-modal")}`,
+        exitLabel: document.querySelector(".demo-exit").getAttribute("aria-label"),
+        hash: location.hash,
+        scrollY,
+        rootOverflow: getComputedStyle(document.documentElement).overflow,
+        mainInert: document.querySelector("main").inert,
+        focusInPanel: document.querySelector(".demo-panel").contains(active),
+        focusTrigger: active?.classList.contains("demo-trigger") ?? false,
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        panelBg: getComputedStyle(document.querySelector(".demo-panel")).backgroundColor,
+        pageBg: getComputedStyle(document.body).backgroundColor,
+      };
+    });
+  const frameReady = (p, sel, search) =>
+    p.waitForFunction(({ sel, search }) => {
+      const w = document.querySelector(sel).contentWindow;
+      try {
+        return w.location.href.includes(search) && w.document.readyState === "complete";
+      } catch {
+        return false;
+      }
+    }, { sel, search }, { polling: 50, timeout: 10000 });
+  // Closing may go through history.back(), which lands a task later.
+  const demoClosed = async (p) => {
+    await p.waitForFunction(() => document.querySelector(".demo").hidden, null, { timeout: 3000 }).catch(() => {});
+    await settle(p);
+  };
+  const openFromButton = async (p) => {
+    await p.evaluate(() => document.querySelector(".demo-trigger").focus({ preventScroll: true }));
+    await p.keyboard.press("Enter");
+    await settle(p);
+  };
+
+  {
+    const p = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
+    const opt = await p.evaluate(() => ({
+      withDemo: [...document.querySelectorAll(".case[data-demo]")].map((c) => c.dataset.case).join(","),
+      trigger: document.querySelectorAll(".case[data-demo] .demo-trigger").length,
+      triggerText: document.querySelector(".case[data-demo] .demo-trigger")?.textContent,
+      lastSlide: document.querySelector(".case[data-demo] .slide:last-child")?.hasAttribute("data-demo"),
+      sameSize: (() => {
+        const s = [...document.querySelectorAll(".case[data-demo] .placeholder")].map((el) => `${el.offsetWidth}x${el.offsetHeight}`);
+        return new Set(s).size === 1 ? s[0] : s.join(" ");
+      })(),
+      others: document.querySelectorAll(".case:not([data-demo]) .demo-trigger, .case:not([data-demo]) .slide[data-demo]").length,
+    }));
+    flag("demo: only Creative Space has data-demo", "creative-space", opt.withDemo, opt.withDemo === "creative-space");
+    flag("demo: its last slide is the demo slide, with the button", "true, 1, Try the demo", `${opt.lastSlide}, ${opt.trigger}, ${opt.triggerText}`, opt.lastSlide && opt.trigger === 1 && opt.triggerText === "Try the demo");
+    flag("demo: the demo slide is the size of the others", "953x675", opt.sameSize, opt.sameSize === "953x675");
+    flag("demo: cases without data-demo show nothing new", 0, opt.others, opt.others === 0);
+    await p.context().close();
+  }
+
+  for (const theme of ["dark", "light"]) {
+    const tag = `${theme} @1920`;
+    const p = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce", colorScheme: theme });
+    const messages = [];
+    await p.exposeFunction("__demoMessage", (m) => messages.push(m));
+    await p.evaluate(() => window.addEventListener("message", (e) => window.__demoMessage(JSON.stringify(e.data))));
+    const scrollBefore = await p.evaluate(() => scrollY);
+    await openFromButton(p);
+    let s = await demoState(p);
+    flag(`demo ${tag}: the button opens it`, "open #demo=creative-space", `${s.open ? "open" : "closed"} ${s.hash}`, s.open && s.hash === "#demo=creative-space");
+    num(`demo ${tag}: column left`, 0, s.column.left, 0.5);
+    num(`demo ${tag}: column width 375`, 375, s.column.width, 0.5);
+    num(`demo ${tag}: column full height`, 1080, s.column.height, 0.5);
+    num(`demo ${tag}: panel starts at the column`, 375, s.panel.left, 0.5);
+    num(`demo ${tag}: panel fills the rest`, 1920, s.panel.right, 0.5);
+    num(`demo ${tag}: panel full height`, 1080, s.panel.height, 0.5);
+    num(`demo ${tag}: top bar 50px`, 50, s.bar.height, 0.5);
+    flag(`demo ${tag}: pill text`, "Demo version — some features are limited", s.pillText, s.pillText === "Demo version — some features are limited");
+    num(`demo ${tag}: pill 784 wide`, 784, s.pill.width, 0.5);
+    num(`demo ${tag}: pill centred in the panel`, (375 + 1920) / 2, s.pill.left + s.pill.width / 2, 1);
+    flag(`demo ${tag}: reload right of the pill, exit at the left`, "pill < reload, exit < pill", `${fmt(s.pill.right)} < ${fmt(s.refresh.left)}, ${fmt(s.exit.right)} < ${fmt(s.pill.left)}`, s.refresh.left > s.pill.right && s.exit.right < s.pill.left && s.exit.left < s.panel.left + 20);
+    flag(`demo ${tag}: a modal dialog, exit labelled`, "dialog true, Close demo", `${s.dialog}, ${s.exitLabel}`, s.dialog === "dialog true" && s.exitLabel === "Close demo");
+    flag(`demo ${tag}: focus moves into the panel`, "inside", s.focusInPanel ? "inside" : "outside", s.focusInPanel);
+    flag(`demo ${tag}: page scroll locked, page inert`, "hidden, inert", `${s.rootOverflow}, ${s.mainInert ? "inert" : "live"}`, s.rootOverflow === "hidden" && s.mainInert);
+    flag(`demo ${tag}: panel in the theme's background`, s.pageBg, s.panelBg, s.panelBg === s.pageBg);
+    flag(`demo ${tag}: no horizontal scroll`, "0", s.overflowX, s.overflowX <= 0);
+
+    await frameReady(p, ".demo-column", "embed=column");
+    await frameReady(p, ".demo-frame", "/demo/creative-space/");
+    s = await demoState(p);
+    flag(`demo ${tag}: column is the site, embedded, on the case`, "index.html?embed=column#creative-space", s.columnSrc, /index\.html\?embed=column#creative-space$/.test(s.columnSrc || ""));
+    flag(`demo ${tag}: demo src from data-demo`, "demo/creative-space/", s.frameSrc, /\/demo\/creative-space\/$/.test(s.frameSrc || ""));
+    const inner = await p.evaluate(() => {
+      const w = document.querySelector(".demo-column").contentWindow;
+      const d = w.document;
+      const demoDoc = document.querySelector(".demo-frame").contentDocument;
+      const text = demoDoc.querySelector(".demo-placeholder");
+      const tr = text.getBoundingClientRect();
+      return {
+        width: w.innerWidth,
+        mobile: getComputedStyle(d.querySelector(".menu-toggle")).display !== "none",
+        overflow: d.documentElement.scrollWidth - d.documentElement.clientWidth,
+        theme: d.documentElement.dataset.theme,
+        caseTop: d.getElementById("creative-space").getBoundingClientRect().top,
+        ownDemo: !d.querySelector(".demo").hidden,
+        demoText: text.textContent,
+        demoCentred: Math.abs(tr.left + tr.width / 2 - demoDoc.documentElement.clientWidth / 2) < 1 && Math.abs(tr.top + tr.height / 2 - demoDoc.documentElement.clientHeight / 2) < 1,
+        demoColour: getComputedStyle(text).color,
+        demoBg: getComputedStyle(demoDoc.body).backgroundColor,
+        muted: getComputedStyle(document.documentElement).getPropertyValue("--text-muted").trim(),
+      };
+    });
+    flag(`demo ${tag}: column page is 375 wide, mobile header`, "375, menu button", `${inner.width}, ${inner.mobile ? "menu button" : "nav row"}`, inner.width === 375 && inner.mobile);
+    flag(`demo ${tag}: column has no horizontal scroll`, "0", inner.overflow, inner.overflow <= 0);
+    flag(`demo ${tag}: column in the same theme`, theme, inner.theme, inner.theme === theme);
+    num(`demo ${tag}: column opens on the case, under its header`, 118, inner.caseTop, 3);
+    flag(`demo ${tag}: demo page says Demo coming soon, centred`, "Demo coming soon, centred", `${inner.demoText}, ${inner.demoCentred ? "centred" : "off centre"}`, inner.demoText === "Demo coming soon" && inner.demoCentred);
+    flag(`demo ${tag}: demo page in the theme's background`, s.pageBg, inner.demoBg, inner.demoBg === s.pageBg);
+    const mutedRgb = await p.evaluate((hex) => { const el = document.createElement("i"); el.style.color = hex; document.body.append(el); const c = getComputedStyle(el).color; el.remove(); return c; }, inner.muted);
+    flag(`demo ${tag}: demo text muted`, mutedRgb, inner.demoColour, inner.demoColour === mutedRgb);
+
+    // The column scrolls on its own; the page under it does not.
+    const columnBefore = await p.evaluate(() => document.querySelector(".demo-column").contentWindow.scrollY);
+    await p.mouse.move(187, 600);
+    await p.mouse.wheel(0, 500);
+    await p.waitForTimeout(150);
+    const scrolled = await p.evaluate(() => ({ column: document.querySelector(".demo-column").contentWindow.scrollY, page: scrollY }));
+    flag(`demo ${tag}: wheel scrolls the column`, `> ${fmt(columnBefore)}`, fmt(scrolled.column), scrolled.column > columnBefore);
+    num(`demo ${tag}: wheel leaves the page where it was`, scrollBefore, scrolled.page, 0.5);
+    await p.mouse.move(1000, 25);
+    await p.mouse.wheel(0, 500);
+    await p.waitForTimeout(150);
+    num(`demo ${tag}: wheel over the bar leaves the page too`, scrollBefore, await p.evaluate(() => scrollY), 0.5);
+
+    // The copy in the column asks this page instead of opening demo mode itself.
+    await p.evaluate(() => document.querySelector(".demo-column").contentWindow.openDemo("creative-space"));
+    await p.waitForTimeout(100);
+    const own = await p.evaluate(() => !document.querySelector(".demo-column").contentDocument.querySelector(".demo").hidden);
+    flag(`demo ${tag}: column's Try the demo posts to the page`, '{"type":"demo-open","caseId":"creative-space"}', messages.join(" | ") || "nothing", messages.includes('{"type":"demo-open","caseId":"creative-space"}'));
+    flag(`demo ${tag}: column never opens demo mode itself`, "closed", own || inner.ownDemo ? "open" : "closed", !own && !inner.ownDemo);
+
+    // Reload: only the demo frame loads again.
+    await p.evaluate(() => {
+      document.querySelector(".demo-frame").contentWindow.__mark = 1;
+      document.querySelector(".demo-column").contentWindow.__mark = 1;
+    });
+    await p.click(".demo-refresh");
+    await p.waitForFunction(() => {
+      const w = document.querySelector(".demo-frame").contentWindow;
+      return !w.__mark && w.document.readyState === "complete";
+    }, null, { polling: 50, timeout: 10000 });
+    const kept = await p.evaluate(() => document.querySelector(".demo-column").contentWindow.__mark === 1);
+    flag(`demo ${tag}: reload reloads the demo only`, "demo reloaded, column kept", kept ? "demo reloaded, column kept" : "column reloaded", kept);
+
+    // Focus stays in the dialog and the column: the page under it is inert.
+    for (let i = 0; i < 4; i++) await p.keyboard.press("Tab");
+    const trapped = await p.evaluate(() => {
+      const a = document.activeElement;
+      return document.querySelector(".demo").contains(a);
+    });
+    flag(`demo ${tag}: Tab stays in demo mode`, "inside", trapped ? "inside" : "outside", trapped);
+
+    // Esc closes from anywhere: the bar, then inside the demo frame.
+    await p.evaluate(() => document.querySelector(".demo-exit").focus());
+    await p.keyboard.press("Escape");
+    await demoClosed(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: Esc closes it`, "closed, no hash", `${s.open ? "open" : "closed"}, ${s.hash || "no hash"}`, !s.open && s.hash === "");
+    num(`demo ${tag}: Esc restores the scroll`, scrollBefore, s.scrollY, 0.5);
+    flag(`demo ${tag}: focus back on the trigger`, "Try the demo", s.focusTrigger ? "Try the demo" : "elsewhere", s.focusTrigger);
+    flag(`demo ${tag}: scroll lock lifted, page live`, "not hidden, live", `${s.rootOverflow}, ${s.mainInert ? "inert" : "live"}`, s.rootOverflow !== "hidden" && !s.mainInert);
+    const unloaded = await p.waitForFunction(() => [".demo-column", ".demo-frame"].every((sel) => document.querySelector(sel).contentWindow.location.href === "about:blank"), null, { timeout: 3000 }).then(() => true, () => false);
+    flag(`demo ${tag}: frames unloaded on close`, "yes", unloaded ? "yes" : "no", unloaded);
+
+    // Back closes it with no extra history entry; a click on the slide opens it.
+    const historyBefore = await p.evaluate(() => history.length);
+    await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].lastElementChild.click());
+    await settle(p);
+    const slideCorner = await p.evaluate(() => {
+      const r = document.querySelector(".slide[data-demo] .placeholder").getBoundingClientRect();
+      return { x: r.left + 60, y: r.top + 60 };
+    });
+    await p.mouse.move(slideCorner.x, slideCorner.y);
+    await settle(p);
+    await p.mouse.click(slideCorner.x, slideCorner.y);
+    await settle(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: a click on the demo slide opens it`, "open", s.open ? "open" : "closed", s.open);
+    // Same-document entries: goBack() would wait for a load that never comes.
+    await p.evaluate(() => history.back());
+    await p.waitForFunction(() => document.querySelector(".demo").hidden, null, { timeout: 3000 }).catch(() => {});
+    await settle(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: Back closes it`, "closed, no hash", `${s.open ? "open" : "closed"}, ${s.hash || "no hash"}`, !s.open && s.hash === "");
+    num(`demo ${tag}: Back restores the scroll`, scrollBefore, s.scrollY, 0.5);
+    const after = await p.evaluate(() => ({ length: history.length, url: location.pathname }));
+    flag(`demo ${tag}: Back stays on the page`, "/index.html", after.url, after.url === "/index.html");
+    await p.evaluate(() => history.forward());
+    await p.waitForFunction(() => !document.querySelector(".demo").hidden, null, { timeout: 3000 }).catch(() => {});
+    await settle(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: Forward opens it again`, "open", s.open ? "open" : "closed", s.open);
+    await p.click(".demo-exit");
+    await demoClosed(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: the exit button closes it`, "closed, no hash", `${s.open ? "open" : "closed"}, ${s.hash || "no hash"}`, !s.open && s.hash === "");
+    const finalLength = await p.evaluate(() => history.length);
+    flag(`demo ${tag}: open and close add one entry at most`, `≤ ${historyBefore + 1}`, finalLength, finalLength <= historyBefore + 1);
+
+    // Esc inside the demo frame.
+    await openFromButton(p);
+    await frameReady(p, ".demo-frame", "/demo/creative-space/");
+    await p.evaluate(() => document.querySelector(".demo-frame").focus());
+    await p.frameLocator(".demo-frame").locator("body").press("Escape");
+    await demoClosed(p);
+    s = await demoState(p);
+    flag(`demo ${tag}: Esc inside the demo closes it`, "closed", s.open ? "open" : "closed", !s.open);
+    await p.context().close();
+  }
+
+  // Opened from the address: demo mode at once, the page on the case; closing
+  // keeps the visitor on the site. The embedded copy ignores the hash.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, colorScheme: "dark", reducedMotion: "reduce" });
+    const p = await ctx.newPage();
+    await p.goto(`${url}#demo=creative-space`, { waitUntil: "load" });
+    await settle(p);
+    let s = await demoState(p);
+    flag("demo direct: #demo=creative-space opens it", "open", s.open ? "open" : "closed", s.open);
+    num("demo direct: column 375", 375, s.column.width, 0.5);
+    const caseTop = await p.evaluate(() => document.getElementById("creative-space").getBoundingClientRect().top);
+    num("demo direct: the page waits on the case", 0, caseTop, 1);
+    await p.keyboard.press("Escape");
+    await settle(p);
+    s = await demoState(p);
+    flag("demo direct: Esc closes it, stays on the page", "closed, no hash, /index.html", `${s.open ? "open" : "closed"}, ${s.hash || "no hash"}, ${await p.evaluate(() => location.pathname)}`, !s.open && s.hash === "" && (await p.evaluate(() => location.pathname)) === "/index.html");
+    num("demo direct: still on the case", 0, await p.evaluate(() => document.getElementById("creative-space").getBoundingClientRect().top), 1);
+    await p.goto(`${url.replace("index.html", "index.html?embed=column")}#demo=creative-space`, { waitUntil: "load" });
+    await settle(p);
+    s = await demoState(p);
+    flag("demo embedded: ?embed=column ignores #demo=", "closed", s.open ? "open" : "closed", !s.open);
+    await ctx.close();
+  }
+
+  // Under 1200 there is no column: the panel fills the window, same bar.
+  for (const [width, height] of [[1199, 900], [1024, 768], [375, 812]]) {
+    const tag = `@${width}`;
+    const p = await openCarouselPage({ viewport: { width, height }, reducedMotion: "reduce" });
+    await openFromButton(p);
+    const s = await demoState(p);
+    flag(`demo ${tag}: opens`, "open", s.open ? "open" : "closed", s.open);
+    await frameReady(p, ".demo-frame", "/demo/creative-space/");
+    await p.waitForTimeout(100);
+    const columnSrc = (await demoState(p)).columnSrc;
+    flag(`demo ${tag}: no column, nothing loaded in it`, "hidden, about:blank", `${s.columnShown ? "shown" : "hidden"}, ${columnSrc}`, !s.columnShown && columnSrc === "about:blank");
+    flag(`demo ${tag}: panel full screen`, `0 0 ${width} ${height}`, [s.panel.left, s.panel.top, s.panel.width, s.panel.height].map(fmt).join(" "), s.panel.left === 0 && s.panel.top === 0 && s.panel.width === width && s.panel.height === height);
+    num(`demo ${tag}: top bar 50px`, 50, s.bar.height, 0.5);
+    const pillW = Math.min(784, width - 112);
+    num(`demo ${tag}: pill shrinks to fit`, pillW, s.pill.width, 0.5);
+    flag(`demo ${tag}: bar buttons inside the window`, `0 … ${width}`, `${fmt(s.exit.left)} … ${fmt(s.refresh.right)}`, s.exit.left >= 0 && s.refresh.right <= width);
+    flag(`demo ${tag}: no horizontal scroll`, "0", s.overflowX, s.overflowX <= 0);
+    await p.keyboard.press("Escape");
+    await demoClosed(p);
+    flag(`demo ${tag}: Esc closes it`, "closed",(await demoState(p)).open ? "open" : "closed", !(await demoState(p)).open);
+    await p.context().close();
+  }
+
+  // Motion on: the panel slides in over ~450ms and back out; nothing is left
+  // moved once it is done.
+  {
+    const p = await openCarouselPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "no-preference" });
+    await openFromButton(p);
+    const mid = await p.evaluate(() => new Promise((r) => setTimeout(() => {
+      const panel = document.querySelector(".demo-panel").getBoundingClientRect().left;
+      const main = Number(getComputedStyle(document.querySelector("main")).opacity);
+      r({ panel, main });
+    }, 150)));
+    flag("demo motion: panel on its way in", "375 < left < 1920", fmt(mid.panel), mid.panel > 380 && mid.panel < 1920);
+    flag("demo motion: page fading out", "0 < opacity < 1", fmt(mid.main), mid.main > 0 && mid.main < 1);
+    await p.waitForTimeout(600);
+    let end = await p.evaluate(() => ({
+      panel: document.querySelector(".demo-panel").getBoundingClientRect().left,
+      running: document.getAnimations().filter((a) => a instanceof CSSAnimation === false && a.effect?.target?.closest?.(".demo, main, header, footer")).length,
+    }));
+    num("demo motion: panel lands at the column", 375, end.panel, 0.5);
+    flag("demo motion: no animation left on", 0, end.running, end.running === 0);
+    await p.keyboard.press("Escape");
+    const closing = await p.evaluate(() => new Promise((r) => setTimeout(() => r(!document.querySelector(".demo").hidden), 150)));
+    flag("demo motion: closing plays out", "still shown", closing ? "still shown" : "gone", closing);
+    await p.waitForTimeout(600);
+    end = await p.evaluate(() => ({
+      hidden: document.querySelector(".demo").hidden,
+      main: getComputedStyle(document.querySelector("main")).opacity,
+      transform: getComputedStyle(document.querySelector("main")).transform,
+    }));
+    flag("demo motion: closed, page back whole", "hidden, 1, none", `${end.hidden ? "hidden" : "shown"}, ${end.main}, ${end.transform}`, end.hidden && end.main === "1" && end.transform === "none");
     await p.context().close();
   }
 } finally {

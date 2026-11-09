@@ -740,6 +740,155 @@ a {
   }
 }
 
+/* The last slide of a case with a demo (POR-46): the same box, one button. */
+.demo-trigger {
+  padding: 12px 24px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-text);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.demo-trigger:hover,
+.demo-trigger:focus-visible {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* Demo mode (POR-46): from 1200 the site sits in a 375px column on the left,
+   a copy of itself in an iframe, so its mobile layout applies; the panel takes
+   the rest. Narrower, the panel alone fills the window. main.js opens it,
+   animates it and locks the page's scroll the way the lightbox does. */
+.is-demo-open {
+  overflow: hidden;
+}
+
+.demo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+}
+
+.demo[hidden] {
+  display: none;
+}
+
+.demo-column {
+  display: none;
+}
+
+.demo-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+@media (min-width: 1200px) {
+  .demo-column {
+    display: block;
+    flex: none;
+    width: 375px;
+    height: 100%;
+    border: 0;
+  }
+
+  .demo-panel {
+    border-left: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  }
+}
+
+/* The pill is centred in the bar and shrinks with it; the reload button hangs
+   off its right end, the exit button sits at the left edge. */
+.demo-bar {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 56px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+.demo-pill-wrap {
+  position: relative;
+  flex: 0 1 784px;
+  min-width: 0;
+}
+
+.demo-pill {
+  margin: 0;
+  padding: 8px 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 6%, var(--bg));
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 16px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.demo-button:hover {
+  color: var(--accent);
+}
+
+/* Inside the button: outside, the bar's top edge would cut it. */
+.demo-button:focus-visible {
+  outline-offset: -2px;
+}
+
+.demo-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.demo-exit {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+}
+
+.demo-refresh {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+}
+
+.demo-frame {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+}
+
 .about {
   padding: var(--header-height) var(--gutter) 96px;
 }
@@ -1169,6 +1318,8 @@ a:focus-visible .roll-char > span {
   .case {
     min-height: auto;
     padding-top: 0;
+    /* The demo column opens on the case's anchor (POR-46). */
+    scroll-margin-top: var(--header-height);
   }
 
   .slide {
