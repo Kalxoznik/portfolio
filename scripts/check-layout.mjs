@@ -150,7 +150,8 @@ function labelStyle(page) {
       theme: document.documentElement.getAttribute("data-theme") || "dark",
       meta: st(".case-meta dt"),
       eyebrow: st(".eyebrow"),
-      boldLoaded: document.fonts.check("700 13px Inter"),
+      // check() would pass on the loaded 600 face as the closest match, so look for a real 700 face.
+      boldLoaded: [...document.fonts].some((f) => f.family.includes("Inter") && f.weight === "700" && f.status === "loaded"),
     };
   });
 }
@@ -553,10 +554,10 @@ try {
     await page.emulateMedia({ reducedMotion: "reduce" });
   }
 
+  labelRows("dark theme", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
   // Theme switch with motion on: the new theme grows as a circle from the
   // toggle's centre (clip-path on ::view-transition-new(root)), then the page
   // is in the new theme with nothing left over. Reduced motion: at once.
-  labelRows("dark theme", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   const circle = await page.evaluate(async () => {
     const root = document.documentElement;
@@ -827,14 +828,31 @@ try {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
   });
-  const light375 =await labelStyle(page);
+  const light375 = await labelStyle(page);
   flag("light theme @375: theme is light", "light", light375.theme, light375.theme === "light");
   labelRows("light theme @375", light375, "rgb(43, 39, 34)", "rgb(62, 58, 50)");
-  const dark375 = await page.evaluate(() => {
+  const dark375 = await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
     return document.documentElement.getAttribute("data-theme");
   });
   flag("light theme @375: back to dark after the rows", "dark", dark375, dark375 === "dark");
+  labelRows("dark theme @375", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
+  // System light (no data-theme, prefers-color-scheme: light) is its own CSS
+  // block, which the toggle never reaches. Restore dark afterwards.
+  await page.evaluate(() => document.documentElement.removeAttribute("data-theme"));
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
+  });
+  const sysAttr = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+  flag("system light @375: no data-theme", "null", String(sysAttr), sysAttr === null);
+  labelRows("system light @375", await labelStyle(page), "rgb(43, 39, 34)", "rgb(62, 58, 50)");
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await timelineChecks(375);
   for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1399, 1400]) {
     await page.setViewportSize({ width, height: 900 });
