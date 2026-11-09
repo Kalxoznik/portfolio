@@ -34,7 +34,7 @@
   --text-secondary: #3e3a32;
   --text-muted: #7a7054;
   --accent: #ff8a00;
-  --accent-text: #c2410c;
+  --accent-text: #ff8a00;
   --surface-placeholder: #ece4ce;
   --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
 }
@@ -47,7 +47,7 @@
     --text-secondary: #3e3a32;
     --text-muted: #7a7054;
     --accent: #ff8a00;
-    --accent-text: #c2410c;
+    --accent-text: #ff8a00;
     --surface-placeholder: #ece4ce;
     --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
   }

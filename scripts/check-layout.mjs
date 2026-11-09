@@ -557,6 +557,13 @@ try {
   flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
   flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
   flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
+  // Light theme: small labels use --accent-text, the same orange as --accent (POR-43).
+  const labels = await page.evaluate(() => ({
+    meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
+    eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
+  }));
+  flag("light theme: case meta label colour", "rgb(255, 138, 0)", labels.meta, labels.meta === "rgb(255, 138, 0)");
+  flag("light theme: slide caption label colour", "rgb(255, 138, 0)", labels.eyebrow, labels.eyebrow === "rgb(255, 138, 0)");
   // A second click while the circle grows: the browser skips the first
   // transition, and its end must not lift the no-fade class from the second.
   const twice = await page.evaluate(async () => {
