@@ -139,6 +139,33 @@ function flag(name, expected, actual, ok) {
   rows.push([name, String(expected), String(actual), ok ? "OK" : "FAIL"]);
 }
 
+// Small uppercase labels (POR-44): ROLE/YEAR/PLATFORM and SCREEN 0X.
+function labelStyle(page) {
+  return page.evaluate(() => {
+    const st = (sel) => {
+      const c = getComputedStyle(document.querySelector(sel));
+      return { color: c.color, weight: c.fontWeight, spacing: c.letterSpacing, opacity: c.opacity, font: c.fontFamily };
+    };
+    return {
+      theme: document.documentElement.getAttribute("data-theme") || "dark",
+      meta: st(".case-meta dt"),
+      eyebrow: st(".eyebrow"),
+      // check() would pass on the loaded 600 face as the closest match, so look for a real 700 face.
+      boldLoaded: [...document.fonts].some((f) => f.family.includes("Inter") && f.weight === "700" && f.status === "loaded"),
+    };
+  });
+}
+
+function labelRows(where, l, metaColour, eyebrowColour) {
+  flag(`${where}: case meta label colour`, metaColour, l.meta.color, l.meta.color === metaColour);
+  flag(`${where}: slide caption label colour`, eyebrowColour, l.eyebrow.color, l.eyebrow.color === eyebrowColour);
+  const style = `${l.meta.weight}/${l.meta.spacing}/${l.meta.opacity}, ${l.eyebrow.weight}/${l.eyebrow.spacing}/${l.eyebrow.opacity}`;
+  // letter-spacing: 0 serialises as "normal" in Chrome; both mean no tracking.
+  flag(`${where}: labels bold, no tracking, opacity 1`, "700/normal/1, 700/normal/1", style,
+    [l.meta, l.eyebrow].every((x) => x.weight === "700" && (x.spacing === "normal" || x.spacing === "0px") && x.opacity === "1"));
+  flag(`${where}: Inter 700 face loaded`, "true", l.boldLoaded, l.boldLoaded === true);
+}
+
 const server = await startServer();
 const url = `http://127.0.0.1:${server.address().port}/index.html`;
 const browser = await chromium.launch();
@@ -527,6 +554,7 @@ try {
     await page.emulateMedia({ reducedMotion: "reduce" });
   }
 
+  labelRows("dark theme", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
   // Theme switch with motion on: the new theme grows as a circle from the
   // toggle's centre (clip-path on ::view-transition-new(root)), then the page
   // is in the new theme with nothing left over. Reduced motion: at once.
@@ -557,13 +585,7 @@ try {
   flag("motion on: circle runs 700ms", "700", fmt(circle.duration), circle.duration === 700);
   flag("motion on: new theme has no colour fade", "rgb(255, 248, 227)", circle.midBg, circle.midBg === "rgb(255, 248, 227)");
   flag("motion on: light theme after the circle", "light / clean", `${circle.theme} / ${circle.leftover ? "class left" : "clean"}`, circle.theme === "light" && !circle.leftover);
-  // Light theme: small labels use --accent-text, the same orange as --accent (POR-43).
-  const labels = await page.evaluate(() => ({
-    meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
-    eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
-  }));
-  flag("light theme: case meta label colour", "rgb(255, 138, 0)", labels.meta, labels.meta === "rgb(255, 138, 0)");
-  flag("light theme: slide caption label colour", "rgb(255, 138, 0)", labels.eyebrow, labels.eyebrow === "rgb(255, 138, 0)");
+  labelRows("light theme", await labelStyle(page), "rgb(43, 39, 34)", "rgb(62, 58, 50)");
   // A second click while the circle grows: the browser skips the first
   // transition, and its end must not lift the no-fade class from the second.
   const twice = await page.evaluate(async () => {
@@ -800,25 +822,38 @@ try {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const over375 = await page.evaluate(overflowX);
   flag("no horizontal scroll @375", "0", over375, over375 <= 0);
-  // Light theme at 375: the small labels are the accent orange too (POR-43).
-  const light375 = await page.evaluate(async () => {
+  // Light theme at 375: same label style and colours (POR-44).
+  await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();
     // Even cut to 0.01ms, the colour transitions may outlast two frames.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await Promise.all(document.getAnimations().filter((a) => a.transitionProperty).map((a) => a.finished.catch(() => {})));
-    return {
-      theme: document.documentElement.getAttribute("data-theme"),
-      meta: getComputedStyle(document.querySelector(".case-meta dt")).color,
-      eyebrow: getComputedStyle(document.querySelector(".eyebrow")).color,
-    };
   });
-  flag("light theme @375: case meta label colour", "rgb(255, 138, 0)", `${light375.meta} (${light375.theme})`, light375.theme === "light" && light375.meta === "rgb(255, 138, 0)");
-  flag("light theme @375: slide caption label colour", "rgb(255, 138, 0)", `${light375.eyebrow} (${light375.theme})`, light375.theme === "light" && light375.eyebrow === "rgb(255, 138, 0)");
-  const dark375 = await page.evaluate(() => {
+  const light375 = await labelStyle(page);
+  flag("light theme @375: theme is light", "light", light375.theme, light375.theme === "light");
+  labelRows("light theme @375", light375, "rgb(43, 39, 34)", "rgb(62, 58, 50)");
+  const dark375 = await page.evaluate(async () => {
     document.querySelector(".theme-toggle").click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
     return document.documentElement.getAttribute("data-theme");
   });
   flag("light theme @375: back to dark after the rows", "dark", dark375, dark375 === "dark");
+  labelRows("dark theme @375", await labelStyle(page), "rgb(255, 248, 227)", "rgb(255, 248, 227)");
+  // System light (no data-theme, prefers-color-scheme: light) is its own CSS
+  // block, which the toggle never reaches. Restore dark afterwards.
+  await page.evaluate(() => document.documentElement.removeAttribute("data-theme"));
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
+  });
+  const sysAttr = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+  flag("system light @375: no data-theme", "null", String(sysAttr), sysAttr === null);
+  labelRows("system light @375", await labelStyle(page), "rgb(43, 39, 34)", "rgb(62, 58, 50)");
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await timelineChecks(375);
   for (const width of [375, 720, 721, 1080, 1081, 1200, 1201, 1399, 1400]) {
     await page.setViewportSize({ width, height: 900 });
