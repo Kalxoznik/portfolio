@@ -10,21 +10,21 @@ Plain HTML, CSS and JavaScript: open `index.html` straight from disk.
 
    | 1x (`01.webp`) | 2x (`01@2x.webp`) |
    |----------------|-------------------|
-   | 953 × 675      | 1906 × 1350       |
+   | 1127 × 675     | 2254 × 1350       |
 
    Every slide has this one size. Other sizes are cropped to the box
    (`object-fit: cover`).
 
 2. **Markup.** In `index.html`, inside the slide's `<div class="placeholder">`,
    replace the icon and label spans with the image. Width and height are the 1x
-   size (`953`/`675`), so nothing jumps while it loads:
+   size (`1127`/`675`), so nothing jumps while it loads:
 
    ```html
    <article class="slide">
      <div class="placeholder">
        <img src="assets/cases/creative-vision/02.webp"
             srcset="assets/cases/creative-vision/02.webp 1x, assets/cases/creative-vision/02@2x.webp 2x"
-            width="953" height="675" alt="Short caption describing what this screen shows."
+            width="1127" height="675" alt="Short caption describing what this screen shows."
             loading="lazy" decoding="async" draggable="false">
      </div>
      <p class="caption"><span class="eyebrow">Screen 02</span><span class="caption-text">Short caption describing what this screen shows.</span></p>
@@ -43,7 +43,7 @@ Plain HTML, CSS and JavaScript: open `index.html` straight from disk.
    <img src="assets/cases/creative-vision/02.webp"
         srcset="assets/cases/creative-vision/02.webp 1x, assets/cases/creative-vision/02@2x.webp 2x"
         data-full="assets/cases/creative-vision/02@full.webp"
-        width="953" height="675" alt="…" loading="lazy" decoding="async" draggable="false">
+        width="1127" height="675" alt="…" loading="lazy" decoding="async" draggable="false">
    ```
 
    It loads only in the lightbox (and when a neighbouring slide is open there).
@@ -51,15 +51,15 @@ Plain HTML, CSS and JavaScript: open `index.html` straight from disk.
    width. A `<video>` in the box works the same way and plays there muted, on a loop.
 
 5. **Video slide.** Put a `<video>` in the box instead of the image and mark the
-   slide with `data-video`. Export **1920 × 1360, MP4 (H.264), no sound**, 10–15 s,
+   slide with `data-video`. Export **1920 × 1150, MP4 (H.264), no sound**, 10–15 s,
    with a first frame as `NN-poster.jpg`:
 
    ```html
    <article class="slide" data-video>
      <div class="placeholder">
        <video src="assets/cases/creative-space/02.mp4" poster="assets/cases/creative-space/02-poster.jpg"
-              width="953" height="675" muted loop playsinline preload="metadata" disablepictureinpicture aria-label="…"></video>
-       <span class="video-badge" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M4 2.5v9l7.5-4.5z" fill="currentColor"/></svg></span>
+              width="1127" height="675" muted loop playsinline preload="metadata" disablepictureinpicture aria-label="…"></video>
+       <span class="video-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="6.5" width="12" height="11" rx="2.8"/><path d="M16.9 10.6l3.4-2.3v7.4l-3.4-2.3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
      </div>
      <p class="caption">…</p>
    </article>

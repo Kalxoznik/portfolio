@@ -3,20 +3,23 @@
 @property --dots {
   syntax: "<color>";
   inherits: true;
-  initial-value: #44423c;
+  initial-value: #34363c;
 }
 
 :root {
   color-scheme: dark;
-  --bg: #161514;
-  --text-primary: #fff8e3;
-  --text-secondary: #d3cfc3;
-  --text-muted: #a99d7a;
-  --accent: #ffaf2e;
-  --accent-text: #ffaf2e;
+  --bg: #111214;
+  --text-primary: #ececef;
+  --text-secondary: #b4b6bc;
+  --text-muted: #7d7f86;
+  --accent: #3b6ef5;
+  --accent-text: #6b93ff;
+  /* Accent text runs from --accent to this, letter by letter (wordmark, current nav item). */
+  --accent-end: #56b6f7;
+  --on-accent: #fff;
   --label-eyebrow: var(--text-primary);
-  --surface-placeholder: #2c2b27;
-  --dots: #44423c;
+  --surface-placeholder: #1e2024;
+  --dots: #34363c;
 
   --gutter: 77px;
   --header-height: 118px;
@@ -30,29 +33,33 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #fff8e3;
-  --text-primary: #2b2722;
-  --text-secondary: #3e3a32;
-  --text-muted: #7a7054;
-  --accent: #ff8a00;
-  --accent-text: #ff8a00;
+  --bg: #f5f6f8;
+  --text-primary: #14161a;
+  --text-secondary: #3a3d44;
+  --text-muted: #6b6f78;
+  --accent: #2f5fe8;
+  --accent-text: #2456e0;
+  --accent-end: #2f9be0;
+  --on-accent: #fff;
   --label-eyebrow: var(--text-secondary);
-  --surface-placeholder: #ece4ce;
-  --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
+  --surface-placeholder: #e4e6eb;
+  --dots: color-mix(in srgb, #9a9ea8 50%, transparent);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --bg: #fff8e3;
-    --text-primary: #2b2722;
-    --text-secondary: #3e3a32;
-    --text-muted: #7a7054;
-    --accent: #ff8a00;
-    --accent-text: #ff8a00;
+    --bg: #f5f6f8;
+    --text-primary: #14161a;
+    --text-secondary: #3a3d44;
+    --text-muted: #6b6f78;
+    --accent: #2f5fe8;
+    --accent-text: #2456e0;
+    --accent-end: #2f9be0;
+    --on-accent: #fff;
     --label-eyebrow: var(--text-secondary);
-    --surface-placeholder: #ece4ce;
-    --dots: color-mix(in srgb, #aa9e7c 50%, transparent);
+    --surface-placeholder: #e4e6eb;
+    --dots: color-mix(in srgb, #9a9ea8 50%, transparent);
   }
 }
 
@@ -73,6 +80,9 @@
 
 :root.is-theme-switching,
 :root.is-theme-switching *,
+:root.is-resizing *,
+:root.is-resizing *::before,
+:root.is-resizing *::after,
 :root.is-theme-switching *::before,
 :root.is-theme-switching *::after {
   transition: none !important;
@@ -105,7 +115,7 @@ body {
 
 ::selection {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 
 :focus-visible {
@@ -177,15 +187,15 @@ a {
 }
 
 .nav a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .nav a[aria-current="true"] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .nav a[aria-current="true"]:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .icon {
@@ -219,7 +229,7 @@ a {
 .wordmark[aria-current="true"],
 .wordmark:hover,
 .wordmark:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .menu-toggle {
@@ -254,7 +264,7 @@ a {
 }
 
 .theme-toggle:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .theme-toggle svg {
@@ -464,8 +474,22 @@ a {
 
 .slide {
   flex: none;
-  width: 953px;
+  width: 1127px;
   scroll-snap-align: start;
+}
+
+/* A slide that rests at the end of the scroll with the last one (main.js). */
+.slide[data-merged] {
+  scroll-snap-align: none;
+}
+
+/* Once you step on, a quarter of the slide before stays in view on the left:
+   easy to see and to click back to (POR-52). main.js reads this inset too.
+   Narrower layouts keep the slide at the gutter, there is no room to spare. */
+@media (min-width: 1081px) {
+  .slide + .slide {
+    scroll-margin-left: calc(1127px * 0.25 + 20px - var(--gutter));
+  }
 }
 
 .placeholder {
@@ -474,7 +498,7 @@ a {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  aspect-ratio: 953 / 675;
+  aspect-ratio: 1127 / 675;
   border-radius: 8px;
   background: var(--surface-placeholder);
   color: var(--text-muted);
@@ -507,19 +531,17 @@ a {
   right: 16px;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(17, 17, 17, 0.55);
+  background: rgba(17, 17, 17, 0.28);
   color: #fff;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
   pointer-events: none;
 }
 
 .video-badge svg {
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
 }
 
 /* Grab and a slight zoom only where a real pointer can hover. Touch keeps
@@ -540,6 +562,16 @@ a {
     cursor: zoom-in;
   }
 
+  /* The caption is text, not a handle: the plain arrow, and the hand only on a link in it. */
+  .carousel .caption,
+  .carousel.is-dragging .caption {
+    cursor: default;
+  }
+
+  .carousel .caption a {
+    cursor: pointer;
+  }
+
   /* The pill is the cursor over a slide; main.js sets the class only there,
      and takes it off once a press turns into a drag. */
   .carousel.has-cursor-label,
@@ -555,20 +587,24 @@ a {
   top: 0;
   left: 0;
   z-index: 30;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #161514;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 16px;
-  text-transform: uppercase;
-  white-space: nowrap;
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  /* White under "difference" inverts what lies below; the black icon leaves it
+     as it is, so the icon reads on any picture. */
+  background: #fff;
+  color: #000;
+  mix-blend-mode: difference;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
+}
+
+.cursor-label svg {
+  width: 28px;
+  height: 28px;
 }
 
 .cursor-label.is-visible {
@@ -640,6 +676,10 @@ a {
   margin: 24px 0 0 var(--gutter);
 }
 
+.carousel-dots button[hidden] {
+  display: none;
+}
+
 .carousel-dots button {
   position: relative;
   width: 6px;
@@ -672,13 +712,13 @@ a {
    The figure is as wide as fits both the window and its height, less the room
    for the close button and the caption. */
 .lightbox {
-  --accent: #ffaf2e;
-  --accent-text: #ffaf2e;
-  --text-primary: #fff8e3;
-  --text-secondary: #d3cfc3;
-  --text-muted: #a99d7a;
+  --accent: #3b6ef5;
+  --accent-text: #6b93ff;
+  --text-primary: #ececef;
+  --text-secondary: #b4b6bc;
+  --text-muted: #7d7f86;
   --label-eyebrow: var(--text-primary);
-  --surface-placeholder: #2c2b27;
+  --surface-placeholder: #1e2024;
   position: fixed;
   inset: 0;
   width: 100%;
@@ -708,7 +748,7 @@ a {
 }
 
 .lightbox-figure {
-  width: min(100%, calc((100dvh - 200px) * 953 / 675));
+  width: min(100%, calc((100dvh - 200px) * 1127 / 675));
   margin: auto;
 }
 
@@ -753,7 +793,7 @@ a {
   }
 
   .lightbox-figure {
-    width: min(100%, calc((100dvh - 120px) * 953 / 675));
+    width: min(100%, calc((100dvh - 120px) * 1127 / 675));
   }
 
   .lightbox-caption {
@@ -849,6 +889,21 @@ a {
   cursor: pointer;
 }
 
+/* With a mouse the cursor already says and does it all (prev, next, close), so
+   the buttons step aside (POR-53). They come back for the keyboard, and touch
+   keeps them. */
+@media (hover: hover) and (pointer: fine) {
+  .lightbox-button {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .lightbox-button:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .lightbox[open] {
     animation: lightbox-in 0.2s ease;
@@ -876,10 +931,22 @@ a {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+/* On the demo slide the button stands on a blurred shot of the board (already
+   blurred in the file), so it gets a solid ground of its own. */
+.slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger {
+  position: relative;
+  background: var(--bg);
+}
+
+.slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger:hover,
+.slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger:focus-visible {
+  background: var(--accent);
+}
+
 .demo-trigger:hover,
 .demo-trigger:focus-visible {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 
 /* Demo mode (POR-46): from 1200 the site sits in a 375px column on the left,
@@ -905,6 +972,17 @@ a {
   display: none;
 }
 
+/* While the panel squeezes the site (main.js) it keeps its final width and is
+   pushed along by the column's edge. */
+.demo.is-squeezing {
+  overflow: hidden;
+}
+
+.demo.is-squeezing .demo-panel {
+  flex: none;
+  width: calc(100vw - 375px);
+}
+
 .demo-panel {
   display: flex;
   flex: 1;
@@ -915,6 +993,8 @@ a {
 
 @media (min-width: 1200px) {
   .demo-column {
+    /* Whatever the copy leaves unpainted (its scrollbar gutter) is the page colour, not the page behind. */
+    background: var(--bg);
     display: block;
     flex: none;
     width: 375px;
@@ -929,26 +1009,47 @@ a {
 
 /* The pill is centred in the bar and shrinks with it; the reload button hangs
    off its right end, the exit button sits at the left edge. */
+/* Like a browser's toolbar: the controls on the left, then the pill takes the
+   rest of the width (POR-56). */
 .demo-bar {
-  position: relative;
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: center;
+  gap: 2px;
   height: 50px;
-  padding: 0 56px;
+  padding: 0 12px 0 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 
 .demo-pill-wrap {
   position: relative;
-  flex: 0 1 784px;
+  flex: 1;
   min-width: 0;
+  margin-left: 6px;
+}
+
+/* Inside the pill, at its right end: the demo on its own in a new tab. */
+.demo-open {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+.demo-open:hover,
+.demo-open:focus-visible {
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--bg));
+  color: var(--text-primary);
 }
 
 .demo-pill {
   margin: 0;
-  padding: 8px 16px;
+  padding: 8px 40px;
   overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-primary) 6%, var(--bg));
@@ -963,24 +1064,28 @@ a {
 .demo-button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
+  margin: 2px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
-.demo-button:hover {
-  color: var(--accent);
-}
-
-/* Inside the button: outside, the bar's top edge would cut it. */
+/* The bar's buttons answer the way the Download chip looks: a quiet filled
+   ground, no accent colour and no ring (POR-56). */
+.demo-button:hover,
 .demo-button:focus-visible {
-  outline-offset: -2px;
+  outline: none;
+  background: color-mix(in srgb, var(--text-primary) 10%, var(--bg));
+}
+
+.demo-panel:focus {
+  outline: none;
 }
 
 .demo-button svg {
@@ -988,18 +1093,64 @@ a {
   height: 20px;
 }
 
-.demo-exit {
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  transform: translateY(-50%);
+/* On the right of the pill, when the case has them: its source on GitHub and
+   the Mac app to download. */
+.demo-repo svg {
+  width: 20px;
+  height: 20px;
 }
 
-.demo-play {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 8px);
-  transform: translateY(-50%);
+.demo-repo {
+  margin-left: 4px;
+  text-decoration: none;
+}
+
+.demo-repo[hidden],
+.demo-download[hidden] {
+  display: none;
+}
+
+/* A quiet filled chip, like a browser toolbar's own buttons: no outline, no accent. */
+.demo-download {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-left: 2px;
+  padding: 0 12px 0 9px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-primary) 10%, var(--bg));
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 16px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.demo-download:hover {
+  background: color-mix(in srgb, var(--text-primary) 18%, var(--bg));
+}
+
+.demo-download svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* A narrow panel (a phone, where the Mac app is no use anyway): the icon alone. */
+@media (max-width: 720px) {
+  .demo-download {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .demo-download span {
+    display: none;
+  }
 }
 
 /* One control for the scripted demo (POR-48): play, pause while it runs, play again after
@@ -1010,12 +1161,14 @@ a {
 
 .demo-play[data-state="idle"] .i-play,
 .demo-play[data-state="paused"] .i-play,
-.demo-play[data-state="playing"] .i-pause,
-.demo-play[data-state="ended"] .i-replay {
+.demo-play[data-state="ended"] .i-play,
+.demo-play[data-state="playing"] .i-pause {
   display: block;
 }
 
 .demo-frame {
+  /* Until the demo has drawn itself: its own light ground, not a white flash. */
+  background: #f6f6f5;
   display: block;
   flex: 1;
   width: 100%;
@@ -1181,7 +1334,7 @@ a {
 }
 
 .text-link:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The last word and the arrow: they wrap together, never apart (POR-19). */
@@ -1288,7 +1441,7 @@ a {
 }
 
 .footer-links a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Link hover (POR-24, main.js splits the text): no underline at rest; on
@@ -1382,7 +1535,7 @@ a:focus-visible .roll-char > span {
   }
 
   .menu-toggle:hover {
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .menu-toggle[aria-expanded="true"] {
@@ -1457,7 +1610,7 @@ a:focus-visible .roll-char > span {
   }
 
   .slide {
-    width: min(953px, 86vw);
+    width: min(1127px, 86vw);
   }
 }
 
@@ -1538,4 +1691,73 @@ a:focus-visible .roll-char > span {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* The site's copy in the column beside a demo: all of it is one way back, so
+   the hand everywhere and no round cursor (POR-57). */
+.is-column,
+.is-column * {
+  cursor: pointer !important;
+}
+
+.is-column .cursor-label {
+  display: none;
+}
+
+/* Its scrollbar: a slim rounded thumb on no track, like the one in Claude. */
+@supports selector(::-webkit-scrollbar) {
+  /* The gutter is painted in the page colour: left clear, it shows what lies
+     behind the column's frame. */
+  .is-column::-webkit-scrollbar {
+    width: 12px;
+    background: var(--bg);
+  }
+
+  .is-column::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+
+  .is-column::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-primary) 35%, transparent);
+    background-clip: padding-box;
+  }
+
+  .is-column::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-primary) 55%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .is-column {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 35%, transparent) var(--bg);
+  }
+}
+
+/* Squeezed, the copy lays out only what is in view: the sections off screen
+   keep their last size and are skipped (POR-58). */
+.is-column .hero,
+.is-column .case,
+.is-column .about,
+.is-column .site-footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* Accent text is a run of colour (POR-59): the wordmark and the current nav
+   item go from --accent to --accent-end across their letters. Each letter is
+   its own box for the roll on hover, so each takes its own step of the run;
+   --n is the letter count main.js leaves on the link. */
+.nav a[aria-current="true"] .roll-char > span,
+.nav a:hover .roll-char > span,
+.nav a:focus-visible .roll-char > span,
+.wordmark[aria-current="true"] .roll-char > span,
+.wordmark:hover .roll-char > span,
+.wordmark:focus-visible .roll-char > span,
+.text-link:hover .roll-char > span,
+.footer-links a:hover .roll-char > span {
+  color: color-mix(in srgb, var(--accent-text), var(--accent-end) calc(var(--i) / max(1, var(--n) - 1) * 100%));
 }

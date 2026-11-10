@@ -861,8 +861,8 @@ try {
     await caseHeadChecks(width);
   }
 
-  // Every carousel slide is one size (POR-42): 953×675 at 1920, the same
-  // 953:675 aspect at every narrower width, min(953, 86vw) below 1081.
+  // Every carousel slide is one size (POR-42, widened to 5:3 in POR-51): 1127×675 at
+  // 1920, the same aspect at every narrower width, min(1127, 86vw) below 1081.
   for (const width of [1920, 1400, 1081, 1080, 721, 720, 375]) {
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -872,15 +872,15 @@ try {
         return [r.width, r.height];
       })
     );
-    const expectedW = width <= 1080 ? Math.min(953, width * 0.86) : 953;
-    const expectedH = (expectedW * 675) / 953;
+    const expectedW = width <= 1080 ? Math.min(1127, width * 0.86) : 1127;
+    const expectedH = (expectedW * 675) / 1127;
     // Creative Space: five screens (one of them a video) and the demo slide; three in the other case.
     flag(`slides: ${sizes.length} found @${width}`, "9", sizes.length, sizes.length === 9);
     const allW = sizes.every(([w]) => Math.abs(w - expectedW) <= TOLERANCE);
     const allH = sizes.every(([, h]) => Math.abs(h - expectedH) <= TOLERANCE);
     flag(`slides all ${fmt(expectedW)} wide @${width}`, fmt(expectedW), [...new Set(sizes.map(([w]) => fmt(w)))].join(","), allW);
     flag(`slides all ${fmt(expectedH)} high @${width}`, fmt(expectedH), [...new Set(sizes.map(([, h]) => fmt(h)))].join(","), allH);
-    if (width === 1920) flag("slides 953×675 @1920", "953×675", `${fmt(sizes[0]?.[0])}×${fmt(sizes[0]?.[1])}`, allW && allH && Math.abs(expectedH - 675) <= TOLERANCE);
+    if (width === 1920) flag("slides 1127×675 @1920", "1127×675", `${fmt(sizes[0]?.[0])}×${fmt(sizes[0]?.[1])}`, allW && allH && Math.abs(expectedH - 675) <= TOLERANCE);
     const over = await page.evaluate(overflowX);
     flag(`no horizontal scroll with slides @${width}`, "0", over, over <= 0);
   }
@@ -1208,7 +1208,7 @@ try {
     flag(`lightbox ${tag}: caption label is light`, "rgb(255, 248, 227)", lb.eyebrowColor, lb.eyebrowColor === "rgb(255, 248, 227)");
     const fits = lb.media[0] >= 0 && lb.media[1] >= 0 && lb.media[2] <= width && lb.captionBottom <= height;
     flag(`lightbox ${tag}: image and caption fit the window`, `0 … ${width}, ≤ ${height}`, `${lb.media.map(fmt).join(" ")}, caption ${fmt(lb.captionBottom)}`, fits);
-    flag(`lightbox ${tag}: image larger than the slide`, width === 1920 ? "> 953" : "> 322.5", fmt(lb.media[2] - lb.media[0]), lb.media[2] - lb.media[0] > (width === 1920 ? 953 : 322.5));
+    flag(`lightbox ${tag}: image larger than the slide`, width === 1920 ? "> 1127" : "> 322.5", fmt(lb.media[2] - lb.media[0]), lb.media[2] - lb.media[0] > (width === 1920 ? 1127 : 322.5));
     flag(`lightbox ${tag}: cursor pill gone`, "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
     flag(`lightbox ${tag}: page scroll locked`, "hidden", lb.rootOverflow, lb.rootOverflow === "hidden");
     num(`lightbox ${tag}: the page does not shift sideways`, logoBefore, await logoLeft(), 0.5);
@@ -1375,7 +1375,7 @@ try {
     await p.evaluate(() => {
       const box = document.querySelectorAll(".carousel")[1].querySelectorAll(".placeholder")[1];
       box.replaceChildren();
-      const img = new Image(953, 675);
+      const img = new Image(1127, 675);
       img.src = "assets/og-image.png";
       img.srcset = "assets/og-image.png 1x, favicon.svg 2x";
       img.alt = "Test image";
@@ -1383,7 +1383,7 @@ try {
       img.draggable = false;
       box.appendChild(img);
       const next = document.querySelectorAll(".carousel")[1].querySelectorAll(".placeholder")[2];
-      const big = new Image(953, 675);
+      const big = new Image(1127, 675);
       big.src = "assets/og-image.png";
       big.dataset.full = "apple-touch-icon.png";
       big.alt = "Test image";
@@ -1475,7 +1475,7 @@ try {
     await p.waitForTimeout(1200);
     flag("motion on: the step ends one dot on", 1, await activeDot(p), (await activeDot(p)) === 1);
     const left = await p.evaluate(() => document.querySelector(".carousel").scrollLeft);
-    num("motion on: the step snaps to the next slide", 973, left, 1);
+    num("motion on: the step snaps to the next slide", 1147, left, 1);
 
     // Inside the lightbox a step crossfades over ~250ms (POR-47).
     await p.evaluate(() => document.querySelectorAll(".carousel-dots")[0].children[0].click());
@@ -1753,7 +1753,7 @@ try {
     }));
     flag("demo: only Creative Space has data-demo", "creative-space", opt.withDemo, opt.withDemo === "creative-space");
     flag("demo: its last slide is the demo slide, with the button", "true, 1, Try the demo", `${opt.lastSlide}, ${opt.trigger}, ${opt.triggerText}`, opt.lastSlide && opt.trigger === 1 && opt.triggerText === "Try the demo");
-    flag("demo: the demo slide is the size of the others", "953x675", opt.sameSize, opt.sameSize === "953x675");
+    flag("demo: the demo slide is the size of the others", "1127x675", opt.sameSize, opt.sameSize === "1127x675");
     flag("demo: cases without data-demo show nothing new", 0, opt.others, opt.others === 0);
     await p.context().close();
   }

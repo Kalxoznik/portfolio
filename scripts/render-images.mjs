@@ -1,6 +1,6 @@
 // Renders the link-preview images in headless Chromium at dpr 1:
 //   assets/og-image.png   1200x630, from scripts/og-image.html
-//   apple-touch-icon.png  180x180, the favicon.svg mark on a square #161514
+//   apple-touch-icon.png  180x180, the favicon.svg mark on a square #111214
 // Run with `npm run images`. Unbounded loads from Google Fonts, so this needs
 // the network; it exits 1 without writing if the font did not load.
 
@@ -56,9 +56,9 @@ try {
   const mark = svg.match(/<path[^>]*\/>/)[0];
   await page.setViewportSize({ width: 180, height: 180 });
   await page.setContent(
-    `<style>html,body{margin:0;background:#161514}svg{display:block}</style>
+    `<style>html,body{margin:0;background:#111214}svg{display:block}</style>
      <svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 32 32">
-       <rect width="32" height="32" fill="#161514"/>
+       <rect width="32" height="32" fill="#111214"/>
        <g transform="translate(16 16) scale(0.85) translate(-16 -16)">${mark}</g>
      </svg>`
   );

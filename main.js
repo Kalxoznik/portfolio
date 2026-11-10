@@ -328,7 +328,15 @@ if (hero && motionOk && window.matchMedia("(hover: hover) and (pointer: fine)").
   }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 
   // The hero's top moves at the 1080 breakpoint, which a size change may miss.
+  // While the column's copy is being squeezed (is-resizing) this waits: the
+  // work is heavy, and nobody is looking at the hero.
+  let rebuildLater = 0;
   function rebuild() {
+    if (root.classList.contains("is-resizing")) {
+      clearTimeout(rebuildLater);
+      rebuildLater = setTimeout(rebuild, 300);
+      return;
+    }
     build();
     draw();
   }
@@ -646,7 +654,13 @@ if (gl) {
   // Both fonts come with display=swap: the lens waits for both, so the canvas
   // never shows a fallback font. fonts.check() is no gate here: it says true
   // while the face is still loading.
+  let rebuildLater = 0;
   function rebuild() {
+    if (root.classList.contains("is-resizing")) {
+      clearTimeout(rebuildLater);
+      rebuildLater = setTimeout(rebuild, 300);
+      return;
+    }
     build();
     render();
   }
@@ -673,7 +687,21 @@ if (gl) {
 // "← PREV" over a sliver of the previous slide can still be read. The lightbox
 // uses the same pill (POR-47): its look is .cursor-label in styles.css, its
 // words are here.
-const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO", close: "CLOSE", pause: "PAUSE", play: "PLAY" };
+const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN LIVE PREVIEW", close: "CLOSE", pause: "PAUSE", play: "PLAY" };
+// The cursor is a round disc with an icon and no words (POR-53): it inverts
+// whatever is under it (styles.css), and the icon is cut out of it. The words
+// above stay as its data-label, for the checks and for whoever reads the DOM.
+const cursorIcon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const CURSOR_ICONS = {
+  [CURSOR_TEXT.next]: cursorIcon('<path d="M4 12h16M13 5l7 7-7 7"/>'),
+  [CURSOR_TEXT.prev]: cursorIcon('<path d="M20 12H4M11 5l-7 7 7 7"/>'),
+  [CURSOR_TEXT.zoom]: cursorIcon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M10.5 7.5v6M7.5 10.5h6"/>'),
+  // The demo slides in beside the site, it does not leave it: an arrow pushing against a panel's edge.
+  [CURSOR_TEXT.demo]: cursorIcon('<path d="M16.5 12H3.5M9.5 6l-6 6 6 6M20.5 4v16"/>'),
+  [CURSOR_TEXT.close]: cursorIcon('<path d="M6 6l12 12M18 6L6 18"/>'),
+  [CURSOR_TEXT.pause]: cursorIcon('<path d="M8.5 5v14M15.5 5v14" stroke-width="3"/>'),
+  [CURSOR_TEXT.play]: cursorIcon('<path d="M8 5v14l11-7z" fill="currentColor"/>'),
+};
 const fineHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 const cursorLabel = document.createElement("div");
 cursorLabel.className = "cursor-label";
@@ -703,7 +731,10 @@ function easeCursorLabel() {
 }
 
 function showCursorLabel(text, x, y) {
-  if (cursorLabel.textContent !== text) cursorLabel.textContent = text;
+  if (cursorLabel.dataset.label !== text) {
+    cursorLabel.dataset.label = text;
+    cursorLabel.innerHTML = CURSOR_ICONS[text] || "";
+  }
   const half = cursorLabel.offsetWidth / 2;
   cursorTargetX = Math.min(Math.max(x, half + 4), innerWidth - half - 4);
   cursorTargetY = y;
@@ -843,7 +874,8 @@ function lightboxZone(x, y) {
   if (!fineHover.matches) return null;
   const step = x < box.left + box.width / 2 ? -1 : 1;
   const next = lightboxIndex + step;
-  if (next < 0 || next >= lightboxSlides.length) return null;
+  // Where there is nothing further that way, the half closes instead.
+  if (next < 0 || next >= lightboxSlides.length) return "close";
   return step < 0 ? "prev" : "next";
 }
 
@@ -961,6 +993,7 @@ const demoFrame = demo?.querySelector(".demo-frame");
 const demoExit = demo?.querySelector(".demo-exit");
 const demoWide = window.matchMedia("(min-width: 1200px)");
 const DEMO_MS = 450;
+const DEMO_SQUEEZE_MS = 700;
 let demoCase = null;
 let demoTrigger = null;
 let demoClosing = null;
@@ -1005,20 +1038,60 @@ function pageParts() {
 
 // The page shrinks towards the column's side and fades; the column fades in
 // over it and the panel comes in from the right. Closing plays it backwards.
-function animateDemo(opening) {
-  const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
-  const options = { duration: DEMO_MS, easing, direction: opening ? "normal" : "reverse", fill: "both" };
-  const runs = [demoPanel.animate({ transform: ["translateX(100%)", "none"] }, options)];
-  if (demoWide.matches) {
-    runs.push(demoColumn.animate({ opacity: [0, 1] }, options));
-    pageParts().forEach((el) => {
-      const box = el.getBoundingClientRect();
-      if (!box.width || !box.height) return;
-      el.style.transformOrigin = `${-box.left}px ${innerHeight / 2 - box.top}px`;
-      runs.push(el.animate({ transform: ["none", "scale(0.85)"], opacity: [1, 0] }, options));
+// The demo panel squeezes the site (POR-58). The site's copy in the column
+// starts as wide as the window, drawn exactly over the page, and narrows to
+// 375 while the panel follows its edge in from the right; being a real page in
+// a frame, the copy reflows into its mobile layout on the way. Closing runs the
+// same thing backwards and ends on the page itself. Nothing fades. Opening
+// waits (briefly) until both frames have loaded, so nothing blank slides in.
+// Without the column (a narrow window) the panel simply slides in.
+function anchorColumn(closing) {
+  if (!demoWide.matches || !demoCase) return;
+  demoColumn.contentWindow.postMessage({
+    type: "column-anchor",
+    caseId: demoCase.dataset.case,
+    offset: demoCase.getBoundingClientRect().top,
+    full: innerWidth,
+    slideLeft: demoCase.querySelector(".carousel")?.scrollLeft ?? 0,
+    closing,
+  }, "*");
+}
+
+const twoFrames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+function animateDemo(opening, ready) {
+  // The squeeze eases in and out and takes a little longer than a plain slide:
+  // the site is re-laid out on the way, and an abrupt start would hide that.
+  const squeeze = demoWide.matches;
+  const easing = squeeze ? "cubic-bezier(0.65, 0, 0.35, 1)" : "cubic-bezier(0.22, 1, 0.36, 1)";
+  const options = { duration: squeeze ? DEMO_SQUEEZE_MS : DEMO_MS, easing, direction: opening ? "normal" : "reverse", fill: "both" };
+  if (squeeze) demo.classList.add("is-squeezing");
+  const runs = squeeze
+    ? [demoColumn.animate({ width: ["100vw", "375px"] }, options)]
+    : [demoPanel.animate({ transform: ["translateX(100%)", "none"] }, options)];
+  runs.forEach((run) => run.pause());
+  if (ready) demo.style.visibility = "hidden";
+  return Promise.resolve(ready)
+    .then(() => {
+      anchorColumn(!opening);
+      return twoFrames();
+    })
+    .then(() => {
+      demo.style.removeProperty("visibility");
+      // Hidden things cannot take focus: now that it shows, the panel does.
+      if (opening) demoPanel.focus({ preventScroll: true });
+      runs.forEach((run) => run.play());
+      return Promise.all(runs.map((run) => run.finished));
+    })
+    .then(() => {
+      demo.classList.remove("is-squeezing");
+      return runs;
     });
-  }
-  return Promise.all(runs.map((run) => run.finished)).then(() => runs);
+}
+
+function framesLoaded(frames, patience) {
+  const loaded = frames.map((frame) => new Promise((resolve) => frame.addEventListener("load", resolve, { once: true })));
+  return Promise.race([Promise.all(loaded), new Promise((resolve) => setTimeout(resolve, patience))]);
 }
 
 function startDemo(caseId, animate) {
@@ -1030,19 +1103,38 @@ function startDemo(caseId, animate) {
   setMenuOpen(false);
   const scrollbar = innerWidth - root.clientWidth;
   if (scrollbar > 0) root.style.paddingRight = `${scrollbar}px`;
+  // Inside the demo there is no round cursor: its controls are the panel's bar.
+  hideCursorLabel();
+  document.querySelectorAll(".carousel.has-cursor-label").forEach((el) => el.classList.remove("has-cursor-label"));
   root.classList.add("is-demo-open");
+  const ready = framesLoaded(demoWide.matches ? [demoFrame, demoColumn] : [demoFrame], 900);
   loadFrame(demoFrame, demoUrl(caseEl.dataset.demo));
+  demo.querySelector(".demo-open")?.setAttribute("href", demoUrl(caseEl.dataset.demo));
+  // The case says where its source and its app live; without them the bar has no such buttons.
+  for (const [selector, href] of [[".demo-repo", caseEl.dataset.repo], [".demo-download", caseEl.dataset.download]]) {
+    const link = demo.querySelector(selector);
+    if (!link) continue;
+    link.hidden = !href;
+    if (href) link.setAttribute("href", href);
+  }
   loadDemoColumn();
   demo.hidden = false;
   pageParts().forEach((el) => { el.inert = true; });
-  demoExit.focus({ preventScroll: true });
-  if (animate && !motionMedia.matches) animateDemo(true).then((runs) => runs.forEach((run) => run.cancel()));
+  // Focus goes to the panel itself, not to a button: Esc and Tab work from
+  // there, and no button lights up as if it had been chosen.
+  demoPanel.focus({ preventScroll: true });
+  if (animate && !motionMedia.matches) animateDemo(true, ready).then((runs) => runs.forEach((run) => run.cancel()));
   return true;
 }
 
 function endDemo() {
   demoGoingBack = false;
   if (!demoCase || demoClosing) return;
+  // Left by a click in the column (POR-57): the page comes back at the section clicked.
+  if (demoLeaveTo) {
+    window.scrollTo({ top: demoLeaveTo.getBoundingClientRect().top + scrollY, behavior: "instant" });
+    demoLeaveTo = null;
+  }
   const finish = (runs = []) => {
     pageParts().forEach((el) => {
       el.inert = false;
@@ -1072,13 +1164,86 @@ function endDemo() {
 // with is replaced, so closing never leaves the site.
 function closeDemo() {
   if (!demoCase || demoClosing || demoGoingBack) return;
-  if (history.state?.demo) {
+  // Left by a click in the column: going back in history would scroll the page
+  // to where it was, so the demo's entry is rewritten instead. Back from there
+  // returns to the case the demo was opened from.
+  // Opened from disk, going back also unloads the frames mid-animation: rewrite there too.
+  if (history.state?.demo && !demoLeaveTo && location.protocol !== "file:") {
     demoGoingBack = true;
     history.back();
     return;
   }
   history.replaceState(null, "", location.pathname + location.search);
   endDemo();
+}
+
+// The column beside the demo is the way back to the site: a click anywhere in
+// it closes the demo and lands on the section that was clicked (POR-57). The
+// copy only reports the click; a drag or a scroll in it is not one.
+const DEMO_SECTIONS = ".hero, .case, .about, .site-footer";
+let demoLeaveTo = null;
+
+if (embedded) {
+  root.classList.add("is-column");
+  // The copy opens on its case at once, with no scroll to watch.
+  root.style.scrollBehavior = "auto";
+  const jump = () => document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: "instant", block: "start" });
+  jump();
+  window.addEventListener("load", jump);
+  // While the frame is being squeezed or let out, the copy keeps the demo's
+  // case in step with the page it stands in for: at full width the case sits
+  // where it sits on the page, at 375 it is at the top (or, closing, wherever
+  // the column had been scrolled to).
+  let anchor = null;
+  // Being resized, the copy switches layouts at once: a menu fading out or a
+  // header easing its colour mid-squeeze would only smear.
+  let resizeQuiet = 0;
+  const holdStill = (ms) => {
+    root.classList.add("is-resizing");
+    clearTimeout(resizeQuiet);
+    resizeQuiet = setTimeout(() => root.classList.remove("is-resizing"), ms);
+  };
+  window.addEventListener("resize", () => holdStill(200));
+  const holdAnchor = () => {
+    if (!anchor) return;
+    const span = anchor.full - 375;
+    const narrow = span > 0 ? Math.min(1, Math.max(0, (anchor.full - innerWidth) / span)) : 1;
+    // Opening ends with the case under the column's header, where its anchor puts it.
+    const atColumn = anchor.narrow ?? (parseFloat(getComputedStyle(anchor.el).scrollMarginTop) || 0);
+    const offset = anchor.wide + (atColumn - anchor.wide) * narrow;
+    window.scrollTo({ top: anchor.el.getBoundingClientRect().top + scrollY - offset, behavior: "instant" });
+  };
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent || event.data?.type !== "column-anchor") return;
+    const el = document.querySelector(`.case[data-case="${event.data.caseId}"]`);
+    if (!el) return;
+    if (!event.data.closing) {
+      const carousel = el.querySelector(".carousel");
+      if (carousel) carousel.scrollTo({ left: event.data.slideLeft, behavior: "instant" });
+    }
+    // The squeeze is about to start: be still before its first frame, not after it.
+    holdStill(1000);
+    anchor = { el, full: event.data.full, wide: event.data.offset, narrow: event.data.closing ? el.getBoundingClientRect().top : null };
+    holdAnchor();
+  });
+  // Both: the observer runs after layout and before the paint of the same
+  // frame, so no frame is drawn with the case out of place.
+  window.addEventListener("resize", holdAnchor);
+  new ResizeObserver(holdAnchor).observe(document.body);
+  let downX = 0;
+  let downY = 0;
+  document.addEventListener("pointerdown", (event) => {
+    downX = event.clientX;
+    downY = event.clientY;
+  }, true);
+  document.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (Math.hypot(event.clientX - downX, event.clientY - downY) > 6) return;
+    const hit = document.elementFromPoint(event.clientX, event.clientY) || event.target;
+    const section = [...document.querySelectorAll(DEMO_SECTIONS)].indexOf(hit.closest(DEMO_SECTIONS));
+    window.parent.postMessage({ type: "demo-leave", section }, "*");
+  }, true);
 }
 
 function openDemo(caseId) {
@@ -1094,7 +1259,7 @@ if (demo && !embedded) {
   // The bar's play control drives the scripted demo: it sends "toggle" and shows
   // whatever state the demo reports back (idle, playing, paused, ended).
   const demoPlay = demo.querySelector(".demo-play");
-  const PLAY_LABELS = { idle: "Play demo", playing: "Pause demo", paused: "Resume demo", ended: "Replay demo" };
+  const PLAY_LABELS = { idle: "Play the live preview", playing: "Pause the live preview", paused: "Resume the live preview", ended: "Replay the live preview" };
   function setDemoPlay(state) {
     if (!PLAY_LABELS[state]) return;
     demoPlay.dataset.state = state;
@@ -1104,6 +1269,10 @@ if (demo && !embedded) {
     demoFrame.contentWindow.postMessage({ source: "cs-demo-host", type: "toggle" }, "*");
   });
   demoFrame.addEventListener("load", () => setDemoPlay("idle"));
+  // Refresh starts the demo over from a clean board: only its frame loads again.
+  demo.querySelector(".demo-refresh").addEventListener("click", () => {
+    loadFrame(demoFrame, demoUrl(demoCase.dataset.demo));
+  });
   window.addEventListener("message", (event) => {
     if (event.source === demoFrame.contentWindow && event.data?.source === "cs-demo" && event.data.type === "state") {
       setDemoPlay(event.data.state);
@@ -1118,7 +1287,15 @@ if (demo && !embedded) {
   demo.querySelector(".demo-edge-start").addEventListener("focus", () => demoFrame.focus());
 
   window.addEventListener("message", (event) => {
-    if (event.source === demoColumn.contentWindow && event.data?.type === "demo-open") openDemo(event.data.caseId);
+    if (event.source !== demoColumn.contentWindow) return;
+    if (event.data?.type === "demo-open") openDemo(event.data.caseId);
+    if (event.data?.type === "demo-leave") {
+      // A click on the case the demo belongs to is just "close": the page is
+      // still where you left it. Any other section opens at its start.
+      const target = document.querySelectorAll(DEMO_SECTIONS)[event.data.section] ?? null;
+      demoLeaveTo = target === demoCase ? null : target;
+      closeDemo();
+    }
   });
 
   function onDemoKey(event) {
@@ -1194,11 +1371,14 @@ document.querySelectorAll(".case").forEach((caseEl) => {
 
   scroller.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    // A link in a caption is a plain link: no drag starts on it, so its click stays its own.
+    if (event.target.closest(".caption a")) return;
     dragging = true;
     moved = false;
     startX = event.clientX;
     startScroll = scroller.scrollLeft;
-    pressedSlide = event.target.closest(".slide");
+    // Only the picture acts on a click; the caption under it is text (POR-55).
+    pressedSlide = event.target.closest(".placeholder")?.closest(".slide") ?? null;
     scroller.setPointerCapture(event.pointerId);
     scroller.classList.add("is-dragging");
   });
@@ -1227,19 +1407,43 @@ document.querySelectorAll(".case").forEach((caseEl) => {
 
   // Under pointer capture the click lands on the carousel, not on the slide.
   scroller.addEventListener("click", (event) => {
-    const slide = event.target.closest(".slide") || pressedSlide;
+    const slide = event.target.closest(".placeholder")?.closest(".slide") || pressedSlide;
     pressedSlide = null;
     if (slide) activateSlide(slide);
   });
 
   function slideScrollLeft(slide) {
     const pad = parseFloat(getComputedStyle(scroller).paddingLeft) || 0;
-    return slide.offsetLeft - scroller.offsetLeft - pad;
+    // After the first, a slide rests further right, so a quarter of the one
+    // before it stays in view (its scroll-margin-left in styles.css).
+    const inset = parseFloat(getComputedStyle(slide).scrollMarginLeft) || 0;
+    return slide.offsetLeft - scroller.offsetLeft - pad - inset;
   }
 
   // The last slides cannot reach the start: they rest at the end of the scroll.
+  // And a stop that would leave only a short hop to the end is no stop at all
+  // (POR-54): once the last slide is more than half in view, that slide rests at
+  // the end too, so there is never a small leftover step. Slides that share a
+  // resting place share one dot.
   function restingScrollLeft(slide) {
-    return Math.min(slideScrollLeft(slide), scroller.scrollWidth - scroller.clientWidth);
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    return slide.hasAttribute("data-merged") ? max : Math.min(slideScrollLeft(slide), max);
+  }
+
+  function layoutStops() {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    const half = slides[0].offsetWidth / 2;
+    slides.forEach((slide, index) => {
+      const merged = index < slides.length - 1 && max - slideScrollLeft(slide) < half;
+      slide.toggleAttribute("data-merged", merged);
+    });
+    let before = null;
+    slides.forEach((slide, index) => {
+      const rest = restingScrollLeft(slide);
+      dots[index].hidden = before !== null && Math.abs(rest - before) < 1;
+      before = rest;
+    });
+    syncDots();
   }
 
   function nearestIndex() {
@@ -1278,29 +1482,33 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     const box = slide.getBoundingClientRect();
     const view = scroller.getBoundingClientRect();
     const whole = box.left >= view.left - 1 && box.right <= view.right + 1;
+    // The demo slide opens the demo from wherever it stands, like its button.
+    if (slide.hasAttribute("data-demo")) return "demo";
     if (hasArrived(slide) || (whole && slides.some(hasArrived))) {
-      if (slide.hasAttribute("data-demo")) return "demo";
-      if (videoOf(slide)) return videoZone(slide, box);
+      const edge = edgeZone(slide, box);
+      if (edge) return edge;
+      if (videoOf(slide)) return videoOf(slide).paused ? "play" : "pause";
       return "zoom";
     }
     return box.left > view.left ? "next" : "prev";
   }
 
-  // Video slides (POR-49): no player controls. The left and right quarters step
-  // to the neighbours (when there are any), the middle pauses and plays. A press
-  // without a pointer position (keyboard, touch) is the middle.
+  // The slide in place has three zones (POR-49, POR-52): its left and right
+  // quarters step to the neighbours (when there are any), the middle opens an
+  // image large or pauses and plays a video, which has no player controls. A
+  // press without a pointer position (keyboard, touch) is the middle.
   function videoOf(slide) {
     return slide.querySelector(".placeholder video");
   }
 
-  function videoZone(slide, box) {
+  function edgeZone(slide, box) {
+    if (pointerX === null) return null;
     const index = slides.indexOf(slide);
-    if (pointerX !== null) {
-      const at = (pointerX - box.left) / box.width;
-      if (at < 0.25 && index > 0) return "step-prev";
-      if (at > 0.75 && index < slides.length - 1) return "step-next";
-    }
-    return videoOf(slide).paused ? "play" : "pause";
+    const at = (pointerX - box.left) / box.width;
+    if (at < 0.25 && index > 0) return "step-prev";
+    // Forward only while there is somewhere further to go.
+    if (at > 0.75 && index < slides.length - 1 && restingScrollLeft(slides[index + 1]) > scroller.scrollLeft + 1) return "step-next";
+    return null;
   }
 
   // A video plays only while its slide is the one in place and the carousel is
@@ -1394,7 +1602,8 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   // targets the carousel, and a scroll changes the zone under a still pointer.
   function refreshCursor() {
     if (pointerX === null || !fineHover.matches) return;
-    const over = document.elementFromPoint(pointerX, pointerY)?.closest(".slide");
+    // The round cursor belongs to the picture, not to the caption under it.
+    const over = document.elementFromPoint(pointerX, pointerY)?.closest(".placeholder")?.closest(".slide");
     const slide = slides.includes(over) && !(dragging && moved) ? over : null;
     scroller.classList.toggle("has-cursor-label", !!slide);
     if (slide) showCursorLabel(CURSOR_TEXT[slideZone(slide).replace("step-", "")], pointerX, pointerY);
@@ -1424,10 +1633,13 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     const slide = slides[index];
     if (!slide) return;
     scroller.scrollTo({
-      left: slideScrollLeft(slide),
+      left: restingScrollLeft(slide),
       behavior: motionOk ? "smooth" : "auto",
     });
   }
+
+  layoutStops();
+  new ResizeObserver(layoutStops).observe(scroller);
 
   scroller.addEventListener("scroll", syncDots, { passive: true });
 
@@ -1461,7 +1673,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   });
 });
 
-// "Try the demo" opens the demo wherever its slide is, even half in view. Under
+// "Open live preview" opens the demo wherever its slide is, even half in view. Under
 // pointer capture the click lands on the carousel, so the press says whether it
 // was on the button; a drag (prevented above) opens nothing.
 document.querySelectorAll(".demo-trigger").forEach((button) => {
@@ -1523,6 +1735,7 @@ document.querySelectorAll(".wordmark, .nav a, .text-link, .footer-links a").forE
     });
     node.replaceWith(parts);
   });
+  link.style.setProperty("--n", index);
 });
 
 const copyButton = document.querySelector(".copy-email");
@@ -1559,3 +1772,122 @@ emailLink?.addEventListener("click", (event) => {
   event.preventDefault();
   copyEmail();
 });
+
+// Section paging (POR-50). With a mouse wheel or a trackpad one scroll takes you
+// a whole screen: hero → each case → Experience → Contact, and back. A section
+// only a little taller than the window (a case on a laptop) pages in two steps,
+// its top and then its bottom. A long one (Experience) scrolls freely inside and
+// pages on from its end. Keyboard, scrollbar, touch and anchor links are left
+// alone, and so is anything open on top of the page.
+(() => {
+  const pagingMedia = window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 1081px)");
+  const sections = [...document.querySelectorAll(".hero, .case, .about, .site-footer")];
+  if (embedded || sections.length < 2) return;
+
+  const PAGE_MS = 650;
+  const FREE_FROM = 1.5; // a section taller than this many windows scrolls freely
+  let run = 0;           // the running page animation
+  let coasting = false;  // a trackpad's inertia after a page is not a new scroll
+  let lastTime = 0;
+  let lastSize = 0;
+
+  const maxScroll = () => root.scrollHeight - innerHeight;
+  const topOf = (el) => Math.min(Math.round(el.getBoundingClientRect().top + scrollY), maxScroll());
+
+  function pageTo(top) {
+    cancelAnimationFrame(run);
+    const from = scrollY;
+    const distance = top - from;
+    if (Math.abs(distance) < 1) return;
+    if (motionMedia.matches) {
+      window.scrollTo({ top, behavior: "instant" });
+      coasting = true;
+      return;
+    }
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / PAGE_MS);
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      window.scrollTo({ top: from + distance * eased, behavior: "instant" });
+      if (t < 1) run = requestAnimationFrame(step);
+      else {
+        run = 0;
+        coasting = true;
+      }
+    };
+    run = requestAnimationFrame(step);
+  }
+
+  window.addEventListener("wheel", (event) => {
+    if (!pagingMedia.matches || event.ctrlKey || event.defaultPrevented) return;
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || !event.deltaY) return;
+    if (root.classList.contains("is-demo-open") || document.querySelector("dialog[open], .site-header.is-menu-open")) return;
+
+    const now = performance.now();
+    const size = Math.abs(event.deltaY);
+    const sameGesture = now - lastTime < 140 && size <= lastSize * 1.3;
+    lastTime = now;
+    lastSize = size;
+
+    if (run) {
+      event.preventDefault();
+      return;
+    }
+    if (coasting) {
+      if (sameGesture) {
+        event.preventDefault();
+        return;
+      }
+      coasting = false;
+    }
+
+    const y = scrollY;
+    const view = innerHeight;
+    const tops = sections.map(topOf);
+    let index = 0;
+    tops.forEach((top, i) => {
+      if (top <= y + 1) index = i;
+    });
+    const top = tops[index];
+    const end = index + 1 < tops.length ? tops[index + 1] : root.scrollHeight;
+    const free = end - top > view * FREE_FROM;
+    const down = event.deltaY > 0;
+
+    if (down) {
+      const below = end - (y + view);  // of this section, still under the window
+      if (below > 1) {
+        if (!free) {
+          event.preventDefault();
+          pageTo(end - view);
+        } else if (size >= below) {
+          // Stop at the section's end; the next scroll pages on.
+          event.preventDefault();
+          window.scrollTo({ top: end - view, behavior: "instant" });
+          coasting = true;
+        }
+        return;
+      }
+      if (index + 1 >= tops.length) return;
+      event.preventDefault();
+      pageTo(tops[index + 1]);
+    } else {
+      const above = y - top;           // of this section, already over the window
+      if (above > 1) {
+        if (!free) {
+          event.preventDefault();
+          pageTo(top);
+        } else if (size >= above) {
+          event.preventDefault();
+          window.scrollTo({ top, behavior: "instant" });
+          coasting = true;
+        }
+        return;
+      }
+      if (index === 0) return;
+      event.preventDefault();
+      // Back into a taller section you arrive at its end, where you left it.
+      const prevTop = tops[index - 1];
+      pageTo(top - prevTop > view + 1 ? top - view : prevTop);
+    }
+  }, { passive: false });
+})();
