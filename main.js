@@ -1152,6 +1152,12 @@ function endDemo() {
     demoTrigger = null;
     demoClosing = null;
     trigger?.focus({ preventScroll: true });
+    // The theme toggle was pressed in the column: the theme changes on the
+    // page itself, once the demo is out of the way.
+    if (demoThenTheme) {
+      demoThenTheme = false;
+      toggle?.click();
+    }
   };
   if (motionMedia.matches) {
     finish();
@@ -1182,6 +1188,7 @@ function closeDemo() {
 // copy only reports the click; a drag or a scroll in it is not one.
 const DEMO_SECTIONS = ".hero, .case, .about, .site-footer";
 let demoLeaveTo = null;
+let demoThenTheme = false;
 
 if (embedded) {
   root.classList.add("is-column");
@@ -1242,7 +1249,7 @@ if (embedded) {
     if (Math.hypot(event.clientX - downX, event.clientY - downY) > 6) return;
     const hit = document.elementFromPoint(event.clientX, event.clientY) || event.target;
     const section = [...document.querySelectorAll(DEMO_SECTIONS)].indexOf(hit.closest(DEMO_SECTIONS));
-    window.parent.postMessage({ type: "demo-leave", section }, "*");
+    window.parent.postMessage({ type: "demo-leave", section, theme: !!hit.closest(".theme-toggle") }, "*");
   }, true);
 }
 
@@ -1294,6 +1301,7 @@ if (demo && !embedded) {
       // still where you left it. Any other section opens at its start.
       const target = document.querySelectorAll(DEMO_SECTIONS)[event.data.section] ?? null;
       demoLeaveTo = target === demoCase ? null : target;
+      demoThenTheme = !!event.data.theme;
       closeDemo();
     }
   });
