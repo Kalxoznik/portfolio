@@ -935,6 +935,7 @@ a {
    blurred in the file), so it gets a solid ground of its own. */
 .slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger {
   position: relative;
+  border-color: transparent;
   background: var(--bg);
   color: var(--text-primary);
 }
