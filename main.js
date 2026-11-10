@@ -673,7 +673,7 @@ if (gl) {
 // "← PREV" over a sliver of the previous slide can still be read. The lightbox
 // uses the same pill (POR-47): its look is .cursor-label in styles.css, its
 // words are here.
-const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO", close: "CLOSE" };
+const CURSOR_TEXT = { next: "NEXT →", prev: "← PREV", zoom: "ZOOM", demo: "OPEN DEMO", close: "CLOSE", pause: "PAUSE", play: "PLAY" };
 const fineHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 const cursorLabel = document.createElement("div");
 cursorLabel.className = "cursor-label";
@@ -762,8 +762,11 @@ function capToFile(box, media, src) {
     const width = media.naturalWidth || media.videoWidth;
     if (width && lightboxMedia.firstElementChild === box) lightboxFigure.style.maxWidth = `${width}px`;
   };
-  if (media.naturalWidth) fit();
-  else media.addEventListener(media.tagName === "VIDEO" ? "loadedmetadata" : "load", fit, { once: true });
+  // The clone still carries the slide's small file until the big one arrives:
+  // measure only what has finished loading.
+  const video = media.tagName === "VIDEO";
+  if (video ? media.readyState >= 1 : media.complete && media.naturalWidth) fit();
+  else media.addEventListener(video ? "loadedmetadata" : "load", fit, { once: true });
 }
 
 function preloadLightbox(index) {
@@ -1275,25 +1278,116 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     const box = slide.getBoundingClientRect();
     const view = scroller.getBoundingClientRect();
     const whole = box.left >= view.left - 1 && box.right <= view.right + 1;
-    if (hasArrived(slide) || (whole && slides.some(hasArrived))) return slide.hasAttribute("data-demo") ? "demo" : "zoom";
+    if (hasArrived(slide) || (whole && slides.some(hasArrived))) {
+      if (slide.hasAttribute("data-demo")) return "demo";
+      if (videoOf(slide)) return videoZone(slide, box);
+      return "zoom";
+    }
     return box.left > view.left ? "next" : "prev";
+  }
+
+  // Video slides (POR-49): no player controls. The left and right quarters step
+  // to the neighbours (when there are any), the middle pauses and plays. A press
+  // without a pointer position (keyboard, touch) is the middle.
+  function videoOf(slide) {
+    return slide.querySelector(".placeholder video");
+  }
+
+  function videoZone(slide, box) {
+    const index = slides.indexOf(slide);
+    if (pointerX !== null) {
+      const at = (pointerX - box.left) / box.width;
+      if (at < 0.25 && index > 0) return "step-prev";
+      if (at > 0.75 && index < slides.length - 1) return "step-next";
+    }
+    return videoOf(slide).paused ? "play" : "pause";
+  }
+
+  // A video plays only while its slide is the one in place and the carousel is
+  // on screen; it pauses as soon as you step away. A pause by click holds until
+  // you leave the slide. Reduced motion: nothing starts by itself.
+  const userPaused = new Set();
+  const userPlayed = new Set();
+  let carouselSeen = false;
+
+  function syncVideos() {
+    const current = slides[nearestIndex()];
+    const settled = hasArrived(current);
+    slides.forEach((slide) => {
+      const video = videoOf(slide);
+      if (!video) return;
+      if (slide !== current && settled) {
+        userPaused.delete(slide);
+        userPlayed.delete(slide);
+      }
+      const play = slide === current && settled && carouselSeen && !document.hidden && !lightbox?.open
+        && !userPaused.has(slide) && (!motionMedia.matches || userPlayed.has(slide));
+      if (play && video.paused) video.play().catch(() => {});
+      else if (!play && !video.paused) video.pause();
+    });
+  }
+
+  function toggleVideo(slide) {
+    const video = videoOf(slide);
+    if (video.paused) {
+      userPaused.delete(slide);
+      userPlayed.add(slide);
+      video.play().catch(() => {});
+    } else {
+      userPlayed.delete(slide);
+      userPaused.add(slide);
+      video.pause();
+    }
+    refreshCursor();
+  }
+
+  slides.forEach((slide) => {
+    const video = videoOf(slide);
+    if (!video) return;
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener("play", refreshCursor);
+    video.addEventListener("pause", refreshCursor);
+  });
+
+  if (slides.some(videoOf)) {
+    new IntersectionObserver(([entry]) => {
+      carouselSeen = entry.isIntersecting;
+      syncVideos();
+    }, { threshold: 0.5 }).observe(scroller);
+    document.addEventListener("visibilitychange", syncVideos);
+    lightbox?.addEventListener("close", syncVideos);
+    let settle = 0;
+    scroller.addEventListener("scroll", () => {
+      cancelAnimationFrame(settle);
+      settle = requestAnimationFrame(syncVideos);
+    }, { passive: true });
   }
 
   function activateSlide(slide) {
     const zone = slideZone(slide);
     if (zone === "next" || zone === "prev") {
       goTo(slides.indexOf(slide));
+    } else if (zone === "step-next" || zone === "step-prev") {
+      goTo(slides.indexOf(slide) + (zone === "step-next" ? 1 : -1));
+    } else if (zone === "pause" || zone === "play") {
+      toggleVideo(slide);
     } else if (zone === "demo") {
       openDemo(caseEl.dataset.case);
     } else {
-      leaveCursor();
-      const shown = slides.filter((item) => !item.hasAttribute("data-demo"));
-      const follow = (current) => scroller.scrollTo({ left: restingScrollLeft(current), behavior: "instant" });
-      openLightbox(shown, shown.indexOf(slide), follow, (last) => {
-        if (slides[nearestIndex()] !== last) scroller.scrollTo({ left: restingScrollLeft(last), behavior: "auto" });
-        last.focus({ preventScroll: true });
-      });
+      zoomSlide(slide);
     }
+  }
+
+  function zoomSlide(slide) {
+    leaveCursor();
+    slides.forEach((item) => videoOf(item)?.pause());
+    const shown = slides.filter((item) => !item.hasAttribute("data-demo"));
+    const follow = (current) => scroller.scrollTo({ left: restingScrollLeft(current), behavior: "instant" });
+    openLightbox(shown, shown.indexOf(slide), follow, (last) => {
+      if (slides[nearestIndex()] !== last) scroller.scrollTo({ left: restingScrollLeft(last), behavior: "auto" });
+      last.focus({ preventScroll: true });
+    });
   }
 
   // Read from the point, not the event: under pointer capture every move
@@ -1303,7 +1397,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     const over = document.elementFromPoint(pointerX, pointerY)?.closest(".slide");
     const slide = slides.includes(over) && !(dragging && moved) ? over : null;
     scroller.classList.toggle("has-cursor-label", !!slide);
-    if (slide) showCursorLabel(CURSOR_TEXT[slideZone(slide)], pointerX, pointerY);
+    if (slide) showCursorLabel(CURSOR_TEXT[slideZone(slide).replace("step-", "")], pointerX, pointerY);
     else hideCursorLabel();
   }
 
@@ -1342,9 +1436,18 @@ document.querySelectorAll(".case").forEach((caseEl) => {
   });
 
   scroller.addEventListener("keydown", (event) => {
+    // On a video slide the keyboard has no edges to aim at: Enter opens it large
+    // like any screen, Space pauses and plays it.
     if (event.key === "Enter" && slides.includes(event.target)) {
       event.preventDefault();
-      activateSlide(event.target);
+      const zone = slideZone(event.target);
+      if (videoOf(event.target) && zone !== "next" && zone !== "prev") zoomSlide(event.target);
+      else activateSlide(event.target);
+      return;
+    }
+    if (event.key === " " && slides.includes(event.target) && videoOf(event.target)) {
+      event.preventDefault();
+      toggleVideo(event.target);
       return;
     }
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;

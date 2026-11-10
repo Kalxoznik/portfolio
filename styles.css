@@ -499,6 +499,29 @@ a {
   user-select: none;
 }
 
+/* A video slide (POR-49) says so with a small badge in the corner; it has no
+   player controls, the carousel clicks drive it (main.js). */
+.video-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.55);
+  color: #fff;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.video-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Grab and a slight zoom only where a real pointer can hover. Touch keeps
    the default cursor and does not scale the image. */
 @media (hover: hover) and (pointer: fine) {

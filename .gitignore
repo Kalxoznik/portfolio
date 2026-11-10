@@ -7,3 +7,6 @@ Thumbs.db
 .idea/
 .vscode/
 node_modules/
+
+# Full-size design sources (screens, raw video); the site uses assets/cases/*
+design-source/

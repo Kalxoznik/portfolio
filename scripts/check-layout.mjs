@@ -874,8 +874,8 @@ try {
     );
     const expectedW = width <= 1080 ? Math.min(953, width * 0.86) : 953;
     const expectedH = (expectedW * 675) / 953;
-    // Six screens and Creative Space's demo slide (POR-46).
-    flag(`slides: ${sizes.length} found @${width}`, "7", sizes.length, sizes.length === 7);
+    // Creative Space: five screens (one of them a video) and the demo slide; three in the other case.
+    flag(`slides: ${sizes.length} found @${width}`, "9", sizes.length, sizes.length === 9);
     const allW = sizes.every(([w]) => Math.abs(w - expectedW) <= TOLERANCE);
     const allH = sizes.every(([, h]) => Math.abs(h - expectedH) <= TOLERANCE);
     flag(`slides all ${fmt(expectedW)} wide @${width}`, fmt(expectedW), [...new Set(sizes.map(([w]) => fmt(w)))].join(","), allW);
@@ -1180,7 +1180,7 @@ try {
     flag(`click ${tag}: the third slide moves the dot to it`, 2, await activeDot(p), (await activeDot(p)) === 2);
     // At 375 the demo slide (POR-46) is one more step: the end of the scroll,
     // where the slide before shows a sliver on the left.
-    if (width === 375) await clickSlide(p, 3);
+    if (width === 375) for (const i of [3, 4, 5]) await clickSlide(p, i);
     const atEnd = await activeDot(p);
     const prevPoint = await hoverSlide(p, atEnd - 1);
     label = await labelState(p);
@@ -1202,7 +1202,7 @@ try {
     let lb = await lightboxState(p);
     flag(`lightbox ${tag}: click on the active slide opens it`, "open", lb.open ? "open" : "closed", lb.open);
     flag(`lightbox ${tag}: caption of that slide`, "Screen 01", lb.eyebrow, lb.eyebrow === "Screen 01");
-    flag(`lightbox ${tag}: counter under the image`, "1 / 3", lb.counter, lb.counter === "1 / 3");
+    flag(`lightbox ${tag}: counter under the image`, "1 / 5", lb.counter, lb.counter === "1 / 5");
     flag(`lightbox ${tag}: first slide shows next only`, "prev hidden, next shown", `prev ${lb.prev ? "shown" : "hidden"}, next ${lb.next ? "shown" : "hidden"}`, !lb.prev && lb.next);
     flag(`lightbox ${tag}: caption text is light`, "rgb(211, 207, 195)", lb.textColor, lb.textColor === "rgb(211, 207, 195)");
     flag(`lightbox ${tag}: caption label is light`, "rgb(255, 248, 227)", lb.eyebrowColor, lb.eyebrowColor === "rgb(255, 248, 227)");
@@ -1232,13 +1232,20 @@ try {
     lb = await lightboxState(p);
     flag(`lightbox ${tag}: → shows the next slide`, "Screen 02", lb.eyebrow, lb.eyebrow === "Screen 02");
     await settle(p);
-    flag(`lightbox ${tag}: → advances the counter and the carousel dot`, "2 / 3, dot 1", `${lb.counter}, dot ${await activeDot(p)}`, lb.counter === "2 / 3" && (await activeDot(p)) === 1);
+    flag(`lightbox ${tag}: → advances the counter and the carousel dot`, "2 / 5, dot 1", `${lb.counter}, dot ${await activeDot(p)}`, lb.counter === "2 / 5" && (await activeDot(p)) === 1);
 
     // Browsing inside it (POR-47): the next button, the cursor halves, hovers.
     await p.click(".lightbox-next");
     await settle(p);
     lb = await lightboxState(p);
-    flag(`lightbox ${tag}: next button advances the counter and the dot`, "Screen 03, 3 / 3, dot 2", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 03" && lb.counter === "3 / 3" && (await activeDot(p)) === 2);
+    flag(`lightbox ${tag}: next button advances the counter and the dot`, "Screen 03, 3 / 5, dot 2", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 03" && lb.counter === "3 / 5" && (await activeDot(p)) === 2);
+    // On to the last of the five screens.
+    for (let i = 0; i < 2; i++) {
+      await p.click(".lightbox-next");
+      await settle(p);
+    }
+    lb = await lightboxState(p);
+    flag(`lightbox ${tag}: next reaches the last screen`, "Screen 05, 5 / 5, dot 4", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 05" && lb.counter === "5 / 5" && (await activeDot(p)) === 4);
     flag(`lightbox ${tag}: last slide shows prev only`, "prev shown, next hidden", `prev ${lb.prev ? "shown" : "hidden"}, next ${lb.next ? "shown" : "hidden"}`, lb.prev && !lb.next);
     flag(`lightbox ${tag}: focus stays in it when next hides`, "inside", lb.focusInside ? "inside" : "outside", lb.focusInside);
     flag(`lightbox ${tag}: reduced motion swaps at once`, 1, lb.boxes, lb.boxes === 1);
@@ -1270,7 +1277,7 @@ try {
     await p.mouse.click(arrows.m.left + arrows.m.width * 0.25, mid);
     await settle(p);
     lb = await lightboxState(p);
-    flag(`lightbox ${tag}: click on the left half steps back`, "Screen 02, 2 / 3, dot 1", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 02" && lb.counter === "2 / 3" && (await activeDot(p)) === 1);
+    flag(`lightbox ${tag}: click on the left half steps back`, "Screen 04, 4 / 5, dot 3", `${lb.eyebrow}, ${lb.counter}, dot ${await activeDot(p)}`, lb.eyebrow === "Screen 04" && lb.counter === "4 / 5" && (await activeDot(p)) === 3);
     await p.mouse.move(arrows.m.left + arrows.m.width * 0.75, mid);
     await settle(p);
     flag(`cursor ${tag}: right half reads NEXT`, "NEXT →", (await labelState(p)).text, (await labelState(p)).text === "NEXT →");
@@ -1285,14 +1292,14 @@ try {
     await settle(p);
     lb = await lightboxState(p);
     flag(`lightbox ${tag}: Esc closes it`, "closed", lb.open ? "open" : "closed", !lb.open);
-    flag(`lightbox ${tag}: focus returns to the slide last shown`, "slide Screen 02", `${lb.focusOnSlide ? "slide" : "other"} ${lb.focusEyebrow}`, lb.focusOnSlide && lb.focusEyebrow === "Screen 02");
-    flag(`lightbox ${tag}: carousel follows the slide last shown`, 1, await activeDot(p), (await activeDot(p)) === 1);
+    flag(`lightbox ${tag}: focus returns to the slide last shown`, "slide Screen 04", `${lb.focusOnSlide ? "slide" : "other"} ${lb.focusEyebrow}`, lb.focusOnSlide && lb.focusEyebrow === "Screen 04");
+    flag(`lightbox ${tag}: carousel follows the slide last shown`, 3, await activeDot(p), (await activeDot(p)) === 3);
     flag(`lightbox ${tag}: scroll lock lifted`, "not hidden", lb.rootOverflow, lb.rootOverflow !== "hidden");
 
     // Enter on the focused active slide, then the × and a click outside.
     await p.keyboard.press("Enter");
     lb = await lightboxState(p);
-    flag(`keyboard ${tag}: Enter on the active slide opens it`, "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+    flag(`keyboard ${tag}: Enter on the active slide opens it`, "open Screen 04", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 04");
     await p.click(".lightbox-close");
     await settle(p);
     lb = await lightboxState(p);
@@ -1627,11 +1634,22 @@ try {
     await settle(p);
     flag("touch @375: tap on the partial slide moves the dot", 1, await activeDot(p), (await activeDot(p)) === 1);
     flag("touch @375: no pill", "hidden", (await labelState(p)).visible ? "visible" : "hidden", !(await labelState(p)).visible);
+    // Screen 02 is a video (POR-49): a tap plays it (reduced motion kept it still),
+    // a second tap pauses it, and it stays in the carousel.
     const b = await slidePoint(p, 1);
+    const videoPaused = () => p.evaluate(() => document.querySelectorAll(".carousel .slide")[1].querySelector("video")?.paused);
     await p.touchscreen.tap(b.x, b.y);
     await settle(p);
+    const played = await videoPaused();
+    await p.touchscreen.tap(b.x, b.y);
+    await settle(p);
+    const paused = await videoPaused();
+    flag("touch @375: tap on the video slide plays it, a second tap pauses", "playing, paused", `${played ? "paused" : "playing"}, ${paused ? "paused" : "playing"}`, played === false && paused === true);
+    await p.evaluate(() => document.querySelectorAll(".carousel .slide")[1].focus({ preventScroll: true }));
+    await p.keyboard.press("Enter");
+    await settle(p);
     const lb = await lightboxState(p);
-    flag("touch @375: tap on the active slide opens the lightbox", "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
+    flag("touch @375: Enter on the video slide opens it large", "open Screen 02", `${lb.open ? "open" : "closed"} ${lb.eyebrow}`, lb.open && lb.eyebrow === "Screen 02");
 
     // A real swipe across the image (POR-47); Playwright's touchscreen only taps.
     const cdp = await p.context().newCDPSession(p);
@@ -1646,11 +1664,11 @@ try {
     };
     await swipe(300, 80);
     let swiped = await lightboxState(p);
-    flag("touch @375: swipe left shows the next slide", "open Screen 03, 3 / 3, dot 2", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}, dot ${await activeDot(p)}`, swiped.open && swiped.eyebrow === "Screen 03" && swiped.counter === "3 / 3" && (await activeDot(p)) === 2);
-    flag("touch @375: next button hidden at the end", "hidden", swiped.next ? "shown" : "hidden", !swiped.next);
+    flag("touch @375: swipe left shows the next slide", "open Screen 03, 3 / 5, dot 2", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}, dot ${await activeDot(p)}`, swiped.open && swiped.eyebrow === "Screen 03" && swiped.counter === "3 / 5" && (await activeDot(p)) === 2);
+    flag("touch @375: next button still there mid-way", "shown", swiped.next ? "shown" : "hidden", swiped.next);
     await swipe(80, 300);
     swiped = await lightboxState(p);
-    flag("touch @375: swipe right steps back, stays open", "open Screen 02, 2 / 3", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}`, swiped.open && swiped.eyebrow === "Screen 02" && swiped.counter === "2 / 3");
+    flag("touch @375: swipe right steps back, stays open", "open Screen 02, 2 / 5", `${swiped.open ? "open" : "closed"} ${swiped.eyebrow}, ${swiped.counter}`, swiped.open && swiped.eyebrow === "Screen 02" && swiped.counter === "2 / 5");
     const imgMid = await p.evaluate(() => {
       const r = document.querySelector(".lightbox-media").getBoundingClientRect();
       return { x: r.left + r.width * 0.75, y: r.top + r.height / 2 };

@@ -50,6 +50,26 @@ Plain HTML, CSS and JavaScript: open `index.html` straight from disk.
    The lightbox fits it to the window and never shows a file larger than its own
    width. A `<video>` in the box works the same way and plays there muted, on a loop.
 
-5. **New slide.** Copy a whole `<article class="slide">`. The dots under the
+5. **Video slide.** Put a `<video>` in the box instead of the image and mark the
+   slide with `data-video`. Export **1920 × 1360, MP4 (H.264), no sound**, 10–15 s,
+   with a first frame as `NN-poster.jpg`:
+
+   ```html
+   <article class="slide" data-video>
+     <div class="placeholder">
+       <video src="assets/cases/creative-space/02.mp4" poster="assets/cases/creative-space/02-poster.jpg"
+              width="953" height="675" muted loop playsinline preload="metadata" disablepictureinpicture aria-label="…"></video>
+       <span class="video-badge" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M4 2.5v9l7.5-4.5z" fill="currentColor"/></svg></span>
+     </div>
+     <p class="caption">…</p>
+   </article>
+   ```
+
+   It has no controls: it plays while its slide is in place and on screen, the
+   middle pauses and plays, the left and right quarters step to the neighbours.
+   Full-size sources (PNG screens, raw video) live in `design-source/`, which is
+   not committed or deployed.
+
+6. **New slide.** Copy a whole `<article class="slide">`. The dots under the
    carousel are built from the slides by `main.js`, so there is nothing else to
    add. A slide without an image keeps the placeholder spans.

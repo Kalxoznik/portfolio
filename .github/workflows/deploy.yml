@@ -21,6 +21,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/site/cv"
           cp index.html styles.css main.js favicon.svg apple-touch-icon.png "$RUNNER_TEMP/site/"
           cp -a assets "$RUNNER_TEMP/site/assets"
+          cp -a demo "$RUNNER_TEMP/site/demo"
           find cv -type f ! -name '.*' -exec cp {} "$RUNNER_TEMP/site/cv/" \;
           tar -C "$RUNNER_TEMP/site" -czf "$RUNNER_TEMP/site.tar.gz" .
 
