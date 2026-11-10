@@ -1505,10 +1505,23 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     if (pointerX === null) return null;
     const index = slides.indexOf(slide);
     const at = (pointerX - box.left) / box.width;
-    if (at < 0.25 && index > 0) return "step-prev";
-    // Forward only while there is somewhere further to go.
-    if (at > 0.75 && index < slides.length - 1 && restingScrollLeft(slides[index + 1]) > scroller.scrollLeft + 1) return "step-next";
+    // A step only while there is somewhere to go that way: on a wide screen the
+    // second slide shows whole beside the first, and its left quarter has no
+    // step back to offer, so it opens the picture like the middle does.
+    if (at < 0.25 && index > 0 && stopBeside(-1) !== -1) return "step-prev";
+    if (at > 0.75 && index < slides.length - 1 && stopBeside(1) !== -1) return "step-next";
     return null;
+  }
+
+  // The nearest resting place before (-1) or after (1) where the carousel
+  // stands now, as a slide index; -1 when there is none.
+  function stopBeside(direction) {
+    const left = scroller.scrollLeft;
+    if (direction > 0) return slides.findIndex((slide) => restingScrollLeft(slide) > left + 1);
+    for (let index = slides.length - 1; index >= 0; index -= 1) {
+      if (restingScrollLeft(slides[index]) < left - 1) return index;
+    }
+    return -1;
   }
 
   // A video plays only while its slide is the one in place and the carousel is
@@ -1577,7 +1590,7 @@ document.querySelectorAll(".case").forEach((caseEl) => {
     if (zone === "next" || zone === "prev") {
       goTo(slides.indexOf(slide));
     } else if (zone === "step-next" || zone === "step-prev") {
-      goTo(slides.indexOf(slide) + (zone === "step-next" ? 1 : -1));
+      goTo(stopBeside(zone === "step-next" ? 1 : -1));
     } else if (zone === "pause" || zone === "play") {
       toggleVideo(slide);
     } else if (zone === "demo") {

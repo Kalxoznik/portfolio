@@ -936,6 +936,7 @@ a {
 .slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger {
   position: relative;
   background: var(--bg);
+  color: var(--text-primary);
 }
 
 .slide[data-demo] .placeholder:has(.demo-backdrop) .demo-trigger:hover,
