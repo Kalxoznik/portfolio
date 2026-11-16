@@ -1845,13 +1845,16 @@ try {
     }
     flag(`demo ${tag}: play control plays, then pauses`, "playing, paused", playStates.join(", "), playStates.join(", ") === "playing, paused");
 
-    // Hover (POR-47): the bar's icons go to --accent.
-    const accentRgb = theme === "dark" ? "rgb(255, 175, 46)" : "rgb(255, 138, 0)";
+    // Hover (POR-49): Chrome-style round fill behind the bar's 32px icons.
+    const hoverFill = theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
     for (const sel of [".demo-exit", ".demo-play"]) {
       await p.hover(sel);
       await settle(p);
-      const c = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).color, sel);
-      flag(`hover ${tag}: ${sel.slice(1)} goes to --accent`, accentRgb, c, c === accentRgb);
+      const c = await p.evaluate((sel) => {
+        const cs = getComputedStyle(document.querySelector(sel));
+        return `${cs.width} ${cs.borderRadius} ${cs.backgroundColor}`;
+      }, sel);
+      flag(`hover ${tag}: ${sel.slice(1)} round fill`, `32px 50% ${hoverFill}`, c, c === `32px 50% ${hoverFill}`);
     }
 
     // Focus stays in the dialog and the column: the page under it is inert.

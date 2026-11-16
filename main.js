@@ -1271,6 +1271,7 @@ if (demo && !embedded) {
     if (!PLAY_LABELS[state]) return;
     demoPlay.dataset.state = state;
     demoPlay.setAttribute("aria-label", PLAY_LABELS[state]);
+    demoPlay.title = PLAY_LABELS[state];
   }
   demoPlay.addEventListener("click", () => {
     demoFrame.contentWindow.postMessage({ source: "cs-demo-host", type: "toggle" }, "*");

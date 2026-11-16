@@ -20,6 +20,9 @@
   --label-eyebrow: var(--text-primary);
   --surface-placeholder: #1e2024;
   --dots: #34363c;
+  /* Round icon buttons, Chrome style: a faint fill on hover, a denser one pressed. */
+  --icon-hover: rgba(255, 255, 255, 0.08);
+  --icon-press: rgba(255, 255, 255, 0.12);
 
   --gutter: 77px;
   --header-height: 118px;
@@ -44,6 +47,8 @@
   --label-eyebrow: var(--text-secondary);
   --surface-placeholder: #e4e6eb;
   --dots: color-mix(in srgb, #9a9ea8 50%, transparent);
+  --icon-hover: rgba(0, 0, 0, 0.06);
+  --icon-press: rgba(0, 0, 0, 0.1);
 }
 
 @media (prefers-color-scheme: light) {
@@ -60,6 +65,8 @@
     --label-eyebrow: var(--text-secondary);
     --surface-placeholder: #e4e6eb;
     --dots: color-mix(in srgb, #9a9ea8 50%, transparent);
+    --icon-hover: rgba(0, 0, 0, 0.06);
+    --icon-press: rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -1066,24 +1073,45 @@ a {
 .demo-button {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   margin: 2px;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 50%;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
-/* The bar's buttons answer the way the Download chip looks: a quiet filled
-   ground, no accent colour and no ring (POR-56). */
 .demo-button:hover,
 .demo-button:focus-visible {
   outline: none;
   background: color-mix(in srgb, var(--text-primary) 10%, var(--bg));
+}
+
+/* The bar's own buttons, like Chrome's Reload: nothing at rest, a faint round
+   fill on hover, a denser one pressed, an accent ring from the keyboard only. */
+.demo-bar > .demo-button {
+  color: var(--text-secondary);
+}
+
+.demo-bar > .demo-button:hover {
+  background: var(--icon-hover);
+}
+
+.demo-bar > .demo-button:active {
+  background: var(--icon-press);
+}
+
+.demo-bar > .demo-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.demo-bar > .demo-button:focus-visible:not(:hover, :active) {
+  background: transparent;
 }
 
 .demo-panel:focus {
@@ -1163,7 +1191,7 @@ a {
 
 .demo-play[data-state="idle"] .i-play,
 .demo-play[data-state="paused"] .i-play,
-.demo-play[data-state="ended"] .i-play,
+.demo-play[data-state="ended"] .i-replay,
 .demo-play[data-state="playing"] .i-pause {
   display: block;
 }
