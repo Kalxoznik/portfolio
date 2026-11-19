@@ -1762,7 +1762,7 @@ document.querySelectorAll(".wordmark, .nav a, .text-link, .footer-links a").forE
 
 const copyButton = document.querySelector(".copy-email");
 const emailLink = document.querySelector(".contact-email");
-const email = "max@maxshakurov.com";
+const email = "max.shakurov@gmail.com";
 let copyTimer = 0;
 
 async function copyEmail() {
